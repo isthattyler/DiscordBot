@@ -1,0 +1,11 @@
+bot:
+  name: "Quantum VWAP Trading Alerts"
+  icon_url: "https://media.discordapp.net/attachments/1441930019562852462/1441930103713042482/IMG_0198.jpeg?ex=6923958e&is=6922440e&hm=72dcc394136c8e8002658f3599e31616ac86cdfa80554a9956f03e4433e03288&=&format=webp&width=930&height=930"
+  embed_color: "#5865F2"
+
+alerts:
+  footer_text: "I am not a financial advisor. For educational purposes only."
+  
+commands:
+  - name: "alert"
+    description: "Send a trading alert"
