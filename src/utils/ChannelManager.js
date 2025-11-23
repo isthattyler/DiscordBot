@@ -175,6 +175,15 @@ class ChannelManager {
     return this.configurations.get(guildId) || { channels: [], mentionRole: null };
   }
 
+  getAllConfigurations() {
+  // Return all guild configurations for broadcasting
+  return Array.from(this.configurations.entries()).map(([guildId, config]) => ({
+    guildId,
+    channels: config.channels,
+    mentionRole: config.mentionRole
+  }));
+}
+
   async exportToReadableFormat() {
     // Export in the format: Server name: channel 1, channel 2
     const output = [];

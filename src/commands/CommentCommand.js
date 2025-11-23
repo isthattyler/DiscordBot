@@ -7,7 +7,7 @@ class CommentCommand {
   constructor() {
     this.data = new SlashCommandBuilder()
       .setName('comment')
-      .setDescription('Post a comment about a trade')
+      .setDescription('Post a comment about a trade to all configured servers')
       .addStringOption(option =>
         option.setName('message')
           .setDescription('Your comment or analysis')
@@ -34,66 +34,69 @@ class CommentCommand {
     };
 
     const embed = CommentEmbed.create(commentData);
-    const guildId = interaction.guildId;
+
+    // Always broadcast to all servers
+    await this.broadcastComment(interaction, embed);
+  }
+
+  async broadcastComment(interaction, embed) {
+    const allConfigs = ChannelManager.getAllConfigurations();
     
-    // Get configured channels
-    const channelIds = ChannelManager.getChannels(guildId);
-    const mentionRoleId = ChannelManager.getMentionRole(guildId);
-    
-    // Prepare mention text
-    let mentionText = '';
-    if (mentionRoleId) {
-      mentionText = `<@&${mentionRoleId}> `;
+    if (allConfigs.length === 0) {
+      return await interaction.reply({
+        content: '❌ No servers are configured for comments. Use `/setup add` to configure channels.',
+        ephemeral: true
+      });
     }
-    
-    // If no channels configured, use current channel
-    if (channelIds.length === 0) {
-      try {
-        await interaction.channel.send({ 
-          content: mentionText,
-          embeds: [embed] 
-        });
-        
-        await interaction.reply({
-          content: '✅ Comment posted to this channel',
-          ephemeral: true
-        });
-      } catch (error) {
-        await interaction.reply({
-          content: '❌ Failed to post comment.',
-          ephemeral: true
-        });
-      }
-      return;
-    }
-    
-    // Send to all configured channels
-    let successCount = 0;
+
+    let totalServers = 0;
+    let totalChannels = 0;
     let failedChannels = [];
-    
-    for (const channelId of channelIds) {
-      try {
-        const channel = await interaction.client.channels.fetch(channelId);
-        await channel.send({ 
-          content: mentionText,
-          embeds: [embed] 
-        });
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to send to channel ${channelId}:`, error);
-        failedChannels.push(`<#${channelId}>`);
+
+    await interaction.deferReply({ ephemeral: true });
+
+    for (const config of allConfigs) {
+      if (config.channels.length === 0) continue;
+
+      let mentionText = '';
+      if (config.mentionRole) {
+        mentionText = `<@&${config.mentionRole}> `;
+      }
+
+      let serverSuccess = false;
+
+      for (const channelId of config.channels) {
+        try {
+          const channel = await interaction.client.channels.fetch(channelId);
+          await channel.send({ 
+            content: mentionText,
+            embeds: [embed] 
+          });
+          totalChannels++;
+          serverSuccess = true;
+        } catch (error) {
+          console.error(`Failed to send to channel ${channelId} in server ${config.guildId}:`, error);
+          failedChannels.push(`<#${channelId}>`);
+        }
+      }
+
+      if (serverSuccess) {
+        totalServers++;
       }
     }
+
+    let confirmMessage = `✅ **Comment Broadcast Complete**\n\n`;
+    confirmMessage += `📡 Sent to ${totalChannels} channel(s) across ${totalServers} server(s)`;
     
-    // Send confirmation
-    let confirmMessage = `✅ Comment posted to ${successCount} channel(s)`;
     if (failedChannels.length > 0) {
-      confirmMessage += `\n⚠️ Failed to send to: ${failedChannels.join(', ')}`;
+      confirmMessage += `\n\n⚠️ Failed channels: ${failedChannels.slice(0, 5).join(', ')}`;
+      if (failedChannels.length > 5) {
+        confirmMessage += ` and ${failedChannels.length - 5} more`;
+      }
     }
-    
-    await interaction.reply({
-      content: confirmMessage,
-      ephemeral: true
+
+    await interaction.editReply({
+      content: confirmMessage
     });
   }
 }
