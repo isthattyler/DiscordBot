@@ -157,12 +157,11 @@ async grantAccess(scriptName, username) {
   }
 
   getApiUrl() {
-    const replAccount = config.getEnv('REPL_ACCOUNT');
-    if (!replAccount) {
-      throw new Error('REPL_ACCOUNT not set in environment variables');
+    const url = config.getEnv('TV_API_URL');
+    if (!url) {
+      throw new Error('TV_API_URL not set in environment variables');
     }
-    // return `https://Tradingview-Access-Management.${replAccount}.repl.co`;
-    return `http://localhost:5000/`;
+    return url;
   }
 }
 
