@@ -30,9 +30,9 @@ class AccessManager {
     return this.pineScripts[scriptName] || [];
   }
 
-async grantAccess(scriptName, username) {
+  async grantAccess(scriptName, username) {
     const pineIds = this.getPineIds(scriptName);
-    
+
     if (pineIds.length === 0) {
       return {
         success: false,
@@ -89,7 +89,7 @@ async grantAccess(scriptName, username) {
           try {
             console.log('✅ Response status:', res.statusCode);
             console.log('📥 Response data:', data);
-            
+
             if (res.statusCode >= 200 && res.statusCode < 300) {
               const jsonData = JSON.parse(data);
               resolve(jsonData);

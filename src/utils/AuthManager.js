@@ -45,7 +45,7 @@ class AuthManager {
     if (!this.authorizedUsers.has(guildId)) {
       this.authorizedUsers.set(guildId, []);
     }
-    
+
     const users = this.authorizedUsers.get(guildId);
     if (!users.includes(userId)) {
       users.push(userId);
@@ -63,15 +63,15 @@ class AuthManager {
 
     const users = this.authorizedUsers.get(guildId);
     const index = users.indexOf(userId);
-    
+
     if (index > -1) {
       users.splice(index, 1);
-      
+
       // If no users left, remove the entire guild entry
       if (users.length === 0) {
         this.authorizedUsers.delete(guildId);
       }
-      
+
       await this.saveAuthorizedUsers();
       console.log(`🗑️ User ${userId} removed from guild ${guildId}`);
       return true;

@@ -19,14 +19,12 @@ class TradingAlertEmbed {
     const footerOptions = {
       text: this.alertConfig.footer_text,
     };
-    
+
     if (this.botConfig.icon_url) {
       footerOptions.iconURL = this.botConfig.icon_url;
     }
-    
-    embed.setFooter(footerOptions);
 
-  return embed;
+    embed.setFooter(footerOptions);
 
     return embed;
   }

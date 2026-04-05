@@ -13,7 +13,7 @@ class TradingBot {
         GatewayIntentBits.GuildMessages,
       ],
     });
-    
+
     this.commandHandler = new CommandHandler();
     this.interactionHandler = InteractionHandler;
     this.channelManager = ChannelManager;
@@ -38,7 +38,7 @@ class TradingBot {
     console.log(`✅ Logged in as ${this.client.user.tag}!`);
     console.log(`🚀 Bot is ready to send trading alerts!`);
     console.log(`📊 Available commands: /alert, /setup, /comment, /auth, /access`);
-    
+
     // Set bot owner from environment variable
     const ownerId = config.getOwnerId();
     if (ownerId) {
@@ -47,10 +47,10 @@ class TradingBot {
     } else {
       console.warn('⚠️ DISCORD_OWNER_ID not set in .env - authorization system will not work!');
     }
-    
+
     // Wait for managers to finish loading
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // Export configuration summary
     const channelSummary = await this.channelManager.exportToReadableFormat();
     if (channelSummary) {

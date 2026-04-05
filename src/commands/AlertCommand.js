@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const TradingAlertEmbed = require('../embeds/TradingAlertEmbed');
 const ChannelManager = require('../utils/ChannelManager');
 const AuthManager = require('../utils/AuthManager');
@@ -22,11 +22,15 @@ class AlertCommand {
           .setRequired(true))
       .addStringOption(option =>
         option.setName('stoploss')
-          .setDescription('Stop loss price')
-          .setRequired(true))
+          .setDescription('Stop loss price (optional)')
+          .setRequired(false))
       .addStringOption(option =>
         option.setName('target')
           .setDescription('Target/Take profit price (optional)')
+          .setRequired(false))
+      .addAttachmentOption(option =>
+        option.setName('image')
+          .setDescription('Chart or screenshot to attach (optional)')
           .setRequired(false));
   }
 
@@ -47,7 +51,23 @@ class AlertCommand {
       target: interaction.options.getString('target'),
     };
 
+    const attachment = interaction.options.getAttachment('image');
+
     const embed = TradingAlertEmbed.create(alertData);
+
+    // Add image to embed if provided
+    if (attachment) {
+      // Validate that it's an image
+      const validImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+      if (validImageTypes.includes(attachment.contentType)) {
+        embed.setImage(attachment.url);
+      } else {
+        return await interaction.reply({
+          content: '❌ Invalid file type. Please upload an image (PNG, JPEG, GIF, or WebP).',
+          ephemeral: true
+        });
+      }
+    }
 
     // Always broadcast to all servers
     await this.broadcastAlert(interaction, embed);
@@ -55,7 +75,7 @@ class AlertCommand {
 
   async broadcastAlert(interaction, embed) {
     const allConfigs = ChannelManager.getAllConfigurations();
-    
+
     if (allConfigs.length === 0) {
       return await interaction.reply({
         content: '❌ No servers are configured for alerts. Use `/setup add` to configure channels.',
@@ -82,9 +102,9 @@ class AlertCommand {
       for (const channelId of config.channels) {
         try {
           const channel = await interaction.client.channels.fetch(channelId);
-          await channel.send({ 
+          await channel.send({
             content: mentionText,
-            embeds: [embed] 
+            embeds: [embed]
           });
           totalChannels++;
           serverSuccess = true;
@@ -101,7 +121,7 @@ class AlertCommand {
 
     let confirmMessage = `✅ **Alert Broadcast Complete**\n\n`;
     confirmMessage += `📡 Sent to ${totalChannels} channel(s) across ${totalServers} server(s)`;
-    
+
     if (failedChannels.length > 0) {
       confirmMessage += `\n\n⚠️ Failed channels: ${failedChannels.slice(0, 5).join(', ')}`;
       if (failedChannels.length > 5) {

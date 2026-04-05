@@ -20,26 +20,26 @@ class CommandHandler {
     const commentCommand = new CommentCommand();
     const authCommand = new AuthCommand();
     const accessCommand = new AccessCommand();
-    
+
     this.commands.set('alert', alertCommand);
     this.commands.set('setup', setupCommand);
     this.commands.set('comment', commentCommand);
     this.commands.set('auth', authCommand);
     this.commands.set('access', accessCommand);
-    
+
     this.commandData.push(alertCommand.data.toJSON());
     this.commandData.push(setupCommand.data.toJSON());
     this.commandData.push(commentCommand.data.toJSON());
     this.commandData.push(authCommand.data.toJSON());
     this.commandData.push(accessCommand.data.toJSON());
-    
+
     console.log('✅ Commands loaded: alert, setup, comment, auth, access');
   }
 
   async registerCommands() {
     try {
       const rest = new REST({ version: '10' }).setToken(config.getToken());
-      
+
       console.log('🔄 Started refreshing application (/) commands.');
 
       await rest.put(
@@ -57,7 +57,7 @@ class CommandHandler {
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
-    
+
     if (!command) {
       console.error(`Command ${interaction.commandName} not found`);
       return;
@@ -67,12 +67,12 @@ class CommandHandler {
       await command.execute(interaction);
     } catch (error) {
       console.error('Error executing command:', error);
-      
+
       const errorMessage = {
         content: 'There was an error executing this command!',
         ephemeral: true,
       };
-      
+
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(errorMessage);
       } else {

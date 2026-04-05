@@ -19,7 +19,7 @@ class CommentEmbed {
     const footerOptions = {
       text: this.alertConfig.footer_text,
     };
-    
+
     if (this.botConfig.icon_url) {
       footerOptions.iconURL = this.botConfig.icon_url;
     }

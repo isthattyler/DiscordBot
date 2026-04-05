@@ -97,8 +97,8 @@ class SetupCommand {
     const botMember = interaction.guild.members.me;
     const permissions = channel.permissionsFor(botMember);
 
-    if (!permissions.has(PermissionFlagsBits.SendMessages) || 
-        !permissions.has(PermissionFlagsBits.EmbedLinks)) {
+    if (!permissions.has(PermissionFlagsBits.SendMessages) ||
+      !permissions.has(PermissionFlagsBits.EmbedLinks)) {
       return await interaction.reply({
         content: `❌ I don't have permission to send messages or embed links in ${channel}. Please grant me the necessary permissions first.`,
         ephemeral: true
@@ -139,8 +139,8 @@ class SetupCommand {
     const botMember = interaction.guild.members.me;
     const permissions = newChannel.permissionsFor(botMember);
 
-    if (!permissions.has(PermissionFlagsBits.SendMessages) || 
-        !permissions.has(PermissionFlagsBits.EmbedLinks)) {
+    if (!permissions.has(PermissionFlagsBits.SendMessages) ||
+      !permissions.has(PermissionFlagsBits.EmbedLinks)) {
       return await interaction.reply({
         content: `❌ I don't have permission to send messages or embed links in ${newChannel}. Please grant me the necessary permissions first.`,
         ephemeral: true

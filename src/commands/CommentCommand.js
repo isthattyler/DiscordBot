@@ -12,9 +12,9 @@ class CommentCommand {
         option.setName('message')
           .setDescription('Your comment or analysis')
           .setRequired(true))
-      .addStringOption(option =>
-        option.setName('ticker')
-          .setDescription('The ticker symbol (optional)')
+      .addAttachmentOption(option =>
+        option.setName('image')
+          .setDescription('Chart or screenshot to attach (optional)')
           .setRequired(false));
   }
 
@@ -27,13 +27,32 @@ class CommentCommand {
       });
     }
 
+    // Process the message to convert literal \n to actual newlines
+    let message = interaction.options.getString('message');
+    message = message.replace(/\\n/g, '\n');
+
     const commentData = {
-      message: interaction.options.getString('message'),
-      ticker: interaction.options.getString('ticker'),
+      message: message,
       author: interaction.user.username,
     };
 
+    const attachment = interaction.options.getAttachment('image');
+
     const embed = CommentEmbed.create(commentData);
+
+    // Add image to embed if provided
+    if (attachment) {
+      // Validate that it's an image
+      const validImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+      if (validImageTypes.includes(attachment.contentType)) {
+        embed.setImage(attachment.url);
+      } else {
+        return await interaction.reply({
+          content: '❌ Invalid file type. Please upload an image (PNG, JPEG, GIF, or WebP).',
+          ephemeral: true
+        });
+      }
+    }
 
     // Always broadcast to all servers
     await this.broadcastComment(interaction, embed);

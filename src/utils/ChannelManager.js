@@ -39,7 +39,7 @@ class ChannelManager {
     if (!this.configurations.has(guildId)) {
       this.configurations.set(guildId, { channels: [], mentionRole: null });
     }
-    
+
     const config = this.configurations.get(guildId);
     if (!config.channels.includes(channelId)) {
       config.channels.push(channelId);
@@ -57,7 +57,7 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const index = config.channels.indexOf(oldChannelId);
-    
+
     if (index === -1) {
       return false; // Old channel not found
     }
@@ -81,15 +81,15 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const index = config.channels.indexOf(channelId);
-    
+
     if (index > -1) {
       config.channels.splice(index, 1);
-      
+
       // If no channels left, remove the entire guild config
       if (config.channels.length === 0 && !config.mentionRole) {
         this.configurations.delete(guildId);
       }
-      
+
       await this.saveConfigurations();
       console.log(`🗑️ Channel ${channelId} removed from guild ${guildId}`);
       return true;
@@ -104,18 +104,18 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const channelCount = config.channels.length;
-    
+
     if (channelCount === 0) {
       return false;
     }
 
     config.channels = [];
-    
+
     // If no mention role either, remove the entire guild config
     if (!config.mentionRole) {
       this.configurations.delete(guildId);
     }
-    
+
     await this.saveConfigurations();
     console.log(`🗑️ All ${channelCount} channels removed from guild ${guildId}`);
     return channelCount;
@@ -123,8 +123,8 @@ class ChannelManager {
 
   async setChannel(guildId, channelId) {
     // Change/replace all channels with just this one
-    this.configurations.set(guildId, { 
-      channels: [channelId], 
+    this.configurations.set(guildId, {
+      channels: [channelId],
       mentionRole: this.getMentionRole(guildId) // Keep existing mention role
     });
     await this.saveConfigurations();
@@ -144,13 +144,13 @@ class ChannelManager {
   async removeMentionRole(guildId) {
     if (this.configurations.has(guildId)) {
       this.configurations.get(guildId).mentionRole = null;
-      
+
       // If no channels either, remove the entire guild config
       const config = this.configurations.get(guildId);
       if (config.channels.length === 0) {
         this.configurations.delete(guildId);
       }
-      
+
       await this.saveConfigurations();
       console.log(`🗑️ Mention role removed for guild ${guildId}`);
     }
@@ -176,13 +176,13 @@ class ChannelManager {
   }
 
   getAllConfigurations() {
-  // Return all guild configurations for broadcasting
-  return Array.from(this.configurations.entries()).map(([guildId, config]) => ({
-    guildId,
-    channels: config.channels,
-    mentionRole: config.mentionRole
-  }));
-}
+    // Return all guild configurations for broadcasting
+    return Array.from(this.configurations.entries()).map(([guildId, config]) => ({
+      guildId,
+      channels: config.channels,
+      mentionRole: config.mentionRole
+    }));
+  }
 
   async exportToReadableFormat() {
     // Export in the format: Server name: channel 1, channel 2

@@ -1,8 +1,8 @@
-const { 
-  ModalBuilder, 
-  TextInputBuilder, 
-  TextInputStyle, 
-  ActionRowBuilder 
+const {
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder
 } = require('discord.js');
 const AccessManager = require('../utils/AccessManager');
 
@@ -10,7 +10,7 @@ class InteractionHandler {
   async handleSelectMenu(interaction) {
     if (interaction.customId === 'access_script_select') {
       const selectedScript = interaction.values[0];
-      
+
       // Create modal for username input
       const modal = new ModalBuilder()
         .setCustomId(`access_modal:${selectedScript}`)
