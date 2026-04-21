@@ -79,13 +79,112 @@ This workflow is the most complex operational sequence and involves three distin
 
 ### 8. Testing
 
-*   **Framework:** Jest
-*   **Run Tests:** `npm test`
-*   **Test Types:**
-    *   **Smoke Tests** (`tests/smoke/`): Verify bot initialization and basic functionality
-    *   **Unit Tests** (`tests/unit/`): Test individual components in isolation
-*   **Mocking:** Alpha Vantage API is mocked to preserve rate limits during testing.
-*   **Coverage:** Tests cover EarningsCalendar, commands (long, short, earnings, setup), embeds, and ChannelManager.
+**Framework:** Jest  
+**Run Tests:** `npm test`  
+**Watch Mode:** `npm run test:watch`  
+**Coverage Report:** Generated in `coverage/` directory after running tests
+
+#### Test Structure
+
+```
+tests/
+├── mocks/
+│   ├── discordjs.js          # Discord.js class mocks
+│   ├── alphaVantageMock.js   # API response mocks
+│   └── fs.js                 # File system mocks
+├── smoke/
+│   └── bot.smoke.test.js     # Module loading tests
+└── unit/
+    ├── commands/             # Command unit tests
+    ├── embeds/               # Embed builder tests
+    ├── utils/                # Utility class tests
+    └── handlers/             # Handler tests
+```
+
+#### Testing Pattern: Singleton Initialization
+
+Utilities use explicit `init()` for testability:
+
+```javascript
+// In production (bot.js)
+await channelManager.init();
+await authManager.init();
+await earningsCalendar.init();
+
+// In tests
+beforeEach(async () => {
+  jest.resetModules();
+  delete require.cache[require.resolve('path/to/module')];
+  const Module = require('path/to/module');
+  await Module.init();
+});
+```
+
+#### Coverage Targets
+
+| Module Type | Target | Current Status |
+|-------------|--------|----------------|
+| Embeds | 90%+ | ✅ 85%+ |
+| Utils | 80%+ | ⚠️ 35% |
+| Commands | 75%+ | ❌ <20% |
+| Handlers | 60%+ | ❌ 0% |
+| **Overall** | **80%+** | **~35%** |
+
+#### Mocking External Dependencies
+
+**Alpha Vantage API:**
+```javascript
+jest.mock('axios', () => ({
+  get: jest.fn()
+}));
+
+// In test
+axios.get.mockResolvedValueOnce({ data: mockCSV });
+```
+
+**File System:**
+```javascript
+jest.mock('fs', () => ({
+  promises: {
+    readFile: jest.fn(),
+    writeFile: jest.fn()
+  }
+}));
+
+// In test
+fs.readFile.mockResolvedValueOnce(JSON.stringify(data));
+```
+
+#### Running Specific Tests
+
+```bash
+# Run specific test file
+npm test -- tradingAlertEmbed
+
+# Run test suite by pattern
+npm test -- channelManager
+
+# Run with coverage
+npm test -- --coverage
+
+# Run in watch mode
+npm run test:watch
+```
+
+#### Test Limitations
+
+1. **Singleton Pattern:** Some utilities (ChannelManager, AuthManager) are singletons, making complete isolation difficult. Tests use `jest.resetModules()` and `delete require.cache` to work around this.
+
+2. **Discord.js Integration:** Full integration tests require a real Discord client. Current tests mock Discord.js classes.
+
+3. **API Rate Limits:** Alpha Vantage API is always mocked in tests to preserve the 25 calls/day free tier limit.
+
+#### Adding New Tests
+
+1. **For Commands:** Test authorization checks, option parsing, embed creation, and error handling
+2. **For Embeds:** Test field generation, color selection, conditional field display
+3. **For Utils:** Test pure functions (parsing, filtering, formatting) over I/O operations
+4. **For Handlers:** Test interaction routing and error recovery
 
 ### 9. Common Troubleshooting
 
