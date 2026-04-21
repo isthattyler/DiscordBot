@@ -46,11 +46,12 @@ class TradingAlertEmbed {
 
   _buildFields(directionEmoji) {
     const ticker = this.alertData.ticker || '';
+    const directionWord = this.direction === 'long' ? 'Long' : this.direction === 'short' ? 'Short' : '';
     
     const fields = [
       {
         name: `${directionEmoji} Ticker:`,
-        value: ticker.toUpperCase(),
+        value: directionWord ? `${directionWord} ${ticker.toUpperCase()}` : ticker.toUpperCase(),
         inline: false,
       },
       {
@@ -58,13 +59,18 @@ class TradingAlertEmbed {
         value: this.alertData.entry,
         inline: false,
       },
-      {
-        name: '🚨 Stoploss:',
-        value: this.alertData.stoploss || 'Not set',
-        inline: false,
-      },
     ];
 
+    // Only add stoploss field if it's set
+    if (this.alertData.stoploss) {
+      fields.push({
+        name: '🚨 Stoploss:',
+        value: this.alertData.stoploss,
+        inline: false,
+      });
+    }
+
+    // Only add target field if it's set
     if (this.alertData.target) {
       fields.push({
         name: '🎯 Target:',
