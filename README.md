@@ -64,13 +64,21 @@ Send a long (bullish) trading alert.
 **Options:**
 - `ticker` (required): The ticker symbol (e.g., MNQ, ES, NQ)
 - `entry` (required): Entry price
-- `stoploss` (optional): Stop loss price
-- `target` (optional): Target/take profit price
+- `stoploss` (optional): Stop loss price — omitted from embed if not set
+- `target` (optional): Target/take profit price — omitted from embed if not set
 - `image` (optional): Chart or screenshot
 
 **Example:**
 ```
 /long ticker:MNQ entry:12345 stoploss:12300 target:12400
+```
+
+**Embed Output:**
+```
+📈 Ticker: Long MNQ
+💵 Entry: 12345
+🚨 Stoploss: 12300
+🎯 Target: 12400
 ```
 
 #### `/short`
@@ -81,6 +89,25 @@ Send a short (bearish) trading alert.
 **Example:**
 ```
 /short ticker:ES entry:4500 stoploss:4510 target:4490
+```
+
+**Embed Output:**
+```
+📉 Ticker: Short ES
+💵 Entry: 4500
+🚨 Stoploss: 4510
+🎯 Target: 4490
+```
+
+**Minimal Example (no stoploss/target):**
+```
+/long ticker:MNQ entry:12345
+```
+
+**Embed Output:**
+```
+📈 Ticker: Long MNQ
+💵 Entry: 12345
 ```
 
 #### `/comment`
