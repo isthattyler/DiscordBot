@@ -112,6 +112,14 @@ class AuthManager {
     }
     return output.join('\n');
   }
+
+  reset() {
+    this.authorizedUsers = new Map();
+    this.ownerId = null;
+    this.initialized = false;
+  }
 }
 
-module.exports = new AuthManager();
+const instance = new AuthManager();
+module.exports = instance;
+module.exports.AuthManager = AuthManager;

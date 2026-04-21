@@ -253,6 +253,14 @@ class EarningsCalendar {
       return `• ${e.symbol} — Est: ${estimate}`;
     }).join('\n');
   }
+
+  reset() {
+    this.cache = null;
+    this.initialized = false;
+    this.sp500Tickers = new Set();
+    this.nasdaq100Tickers = new Set();
+    this.combinedTickers = new Set();
+  }
 }
 
 module.exports = new EarningsCalendar();

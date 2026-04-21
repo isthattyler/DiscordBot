@@ -7,13 +7,19 @@ const config = require('./ConfigLoader');
 class AccessManager {
   constructor() {
     this.pineScripts = null;
-    this.loadPineScripts();
+    this.initialized = false;
   }
 
-  loadPineScripts() {
+  async init() {
+    if (this.initialized) return;
+    await this.loadPineScripts();
+    this.initialized = true;
+  }
+
+  async loadPineScripts() {
     try {
       const scriptsPath = path.join(__dirname, '../../config/pine_scripts.json');
-      const fileContents = fs.readFileSync(scriptsPath, 'utf8');
+      const fileContents = await fs.promises.readFile(scriptsPath, 'utf8');
       this.pineScripts = JSON.parse(fileContents);
       console.log('✅ Pine scripts loaded successfully');
     } catch (error) {
@@ -163,6 +169,17 @@ class AccessManager {
     }
     return url;
   }
+
+  reset() {
+    this.pineScripts = null;
+    this.initialized = false;
+  }
+
+  setPineScripts(scripts) {
+    this.pineScripts = scripts;
+  }
 }
 
-module.exports = new AccessManager();
+const instance = new AccessManager();
+module.exports = instance;
+module.exports.AccessManager = AccessManager;

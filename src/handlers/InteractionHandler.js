@@ -7,6 +7,10 @@ const {
 const AccessManager = require('../utils/AccessManager');
 
 class InteractionHandler {
+  constructor() {
+    this.accessManager = AccessManager;
+  }
+
   async handleSelectMenu(interaction) {
     if (interaction.customId === 'access_script_select') {
       const selectedScript = interaction.values[0];
@@ -40,7 +44,7 @@ class InteractionHandler {
       await interaction.deferReply({ ephemeral: true });
 
       // Call the API
-      const result = await AccessManager.grantAccess(scriptName, username);
+      const result = await this.accessManager.grantAccess(scriptName, username);
 
       // Build response message
       let responseMessage = `**Script:** ${scriptName}\n**Username:** ${username}\n\n${result.message}`;
@@ -61,4 +65,5 @@ class InteractionHandler {
   }
 }
 
-module.exports = new InteractionHandler();
+module.exports = InteractionHandler;
+module.exports.instance = new InteractionHandler();
