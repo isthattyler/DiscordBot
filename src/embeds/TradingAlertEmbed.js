@@ -6,13 +6,16 @@ class TradingAlertEmbed {
     this.alertData = alertData;
     this.botConfig = config.get('bot');
     this.alertConfig = config.get('alerts');
+    this.direction = alertData.position || 'neutral';
   }
 
   build() {
+    const { color, emoji } = this._getDirectionStyles();
+    
     const embed = new EmbedBuilder()
-      .setColor(this.botConfig.embed_color)
+      .setColor(color)
       .setThumbnail(this.botConfig.icon_url)
-      .addFields(this._buildFields())
+      .addFields(this._buildFields(emoji))
       .setTimestamp();
 
     // Set footer with icon
@@ -29,11 +32,25 @@ class TradingAlertEmbed {
     return embed;
   }
 
-  _buildFields() {
+  _getDirectionStyles() {
+    const position = this.direction.toLowerCase();
+    
+    if (position === 'long') {
+      return { color: 0x00FF00, emoji: '📈' }; // Green
+    } else if (position === 'short') {
+      return { color: 0xFF0000, emoji: '📉' }; // Red
+    } else {
+      return { color: this.botConfig.embed_color || 0x5865F2, emoji: '📊' }; // Default blue
+    }
+  }
+
+  _buildFields(directionEmoji) {
+    const ticker = this.alertData.ticker || '';
+    
     const fields = [
       {
-        name: '📊 Ticker:',
-        value: `${this.alertData.ticker} ${this.alertData.position}`,
+        name: `${directionEmoji} Ticker:`,
+        value: ticker.toUpperCase(),
         inline: false,
       },
       {
@@ -43,7 +60,7 @@ class TradingAlertEmbed {
       },
       {
         name: '🚨 Stoploss:',
-        value: this.alertData.stoploss ? this.alertData.stoploss : "",
+        value: this.alertData.stoploss || 'Not set',
         inline: false,
       },
     ];
@@ -64,4 +81,4 @@ class TradingAlertEmbed {
   }
 }
 
-module.exports = TradingAlertEmbed
+module.exports = TradingAlertEmbed;

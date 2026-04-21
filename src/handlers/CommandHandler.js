@@ -1,10 +1,12 @@
 const { REST, Routes } = require('discord.js');
 const config = require('../utils/ConfigLoader');
-const AlertCommand = require('../commands/AlertCommand');
+const LongCommand = require('../commands/LongCommand');
+const ShortCommand = require('../commands/ShortCommand');
 const SetupCommand = require('../commands/SetupCommand');
 const CommentCommand = require('../commands/CommentCommand');
 const AuthCommand = require('../commands/AuthCommand');
 const AccessCommand = require('../commands/AccessCommand');
+const EarningsCommand = require('../commands/EarningsCommand');
 
 class CommandHandler {
   constructor() {
@@ -15,25 +17,31 @@ class CommandHandler {
 
   loadCommands() {
     // Register all commands here
-    const alertCommand = new AlertCommand();
+    const longCommand = new LongCommand();
+    const shortCommand = new ShortCommand();
     const setupCommand = new SetupCommand();
     const commentCommand = new CommentCommand();
     const authCommand = new AuthCommand();
     const accessCommand = new AccessCommand();
+    const earningsCommand = new EarningsCommand();
 
-    this.commands.set('alert', alertCommand);
+    this.commands.set('long', longCommand);
+    this.commands.set('short', shortCommand);
     this.commands.set('setup', setupCommand);
     this.commands.set('comment', commentCommand);
     this.commands.set('auth', authCommand);
     this.commands.set('access', accessCommand);
+    this.commands.set('earnings', earningsCommand);
 
-    this.commandData.push(alertCommand.data.toJSON());
+    this.commandData.push(longCommand.data.toJSON());
+    this.commandData.push(shortCommand.data.toJSON());
     this.commandData.push(setupCommand.data.toJSON());
     this.commandData.push(commentCommand.data.toJSON());
     this.commandData.push(authCommand.data.toJSON());
     this.commandData.push(accessCommand.data.toJSON());
+    this.commandData.push(earningsCommand.data.toJSON());
 
-    console.log('✅ Commands loaded: alert, setup, comment, auth, access');
+    console.log('✅ Commands loaded: long, short, setup, comment, auth, access, earnings');
   }
 
   async registerCommands() {

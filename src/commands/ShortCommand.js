@@ -3,18 +3,14 @@ const TradingAlertEmbed = require('../embeds/TradingAlertEmbed');
 const ChannelManager = require('../utils/ChannelManager');
 const AuthManager = require('../utils/AuthManager');
 
-class AlertCommand {
+class ShortCommand {
   constructor() {
     this.data = new SlashCommandBuilder()
-      .setName('alert')
-      .setDescription('Send a trading alert to all configured servers')
+      .setName('short')
+      .setDescription('Send a short trading alert to all configured servers')
       .addStringOption(option =>
         option.setName('ticker')
           .setDescription('The ticker symbol (e.g., MNQ, ES, NQ)')
-          .setRequired(true))
-      .addStringOption(option =>
-        option.setName('position')
-          .setDescription('Position type (e.g., "long last long", "short")')
           .setRequired(true))
       .addStringOption(option =>
         option.setName('entry')
@@ -45,7 +41,7 @@ class AlertCommand {
 
     const alertData = {
       ticker: interaction.options.getString('ticker'),
-      position: interaction.options.getString('position'),
+      position: 'short',
       entry: interaction.options.getString('entry'),
       stoploss: interaction.options.getString('stoploss'),
       target: interaction.options.getString('target'),
@@ -78,7 +74,7 @@ class AlertCommand {
 
     if (allConfigs.length === 0) {
       return await interaction.reply({
-        content: '❌ No servers are configured for alerts. Use `/setup add` to configure channels.',
+        content: '❌ No servers are configured for alerts. Use `/setup alert-channel add` to configure channels.',
         ephemeral: true
       });
     }
@@ -90,7 +86,8 @@ class AlertCommand {
     await interaction.deferReply({ ephemeral: true });
 
     for (const config of allConfigs) {
-      if (config.channels.length === 0) continue;
+      // Only post to alert channels, not earnings channels
+      if (!config.channels || config.channels.length === 0) continue;
 
       let mentionText = '';
       if (config.mentionRole) {
@@ -135,4 +132,4 @@ class AlertCommand {
   }
 }
 
-module.exports = AlertCommand;
+module.exports = ShortCommand;
