@@ -11,8 +11,13 @@ class EarningsCalendar {
     this.nasdaq100Tickers = new Set();
     this.combinedTickers = new Set();
     this.cache = null;
-    
-    this.loadIndexLists();
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await this.loadIndexLists();
+    this.initialized = true;
   }
 
   async loadIndexLists() {

@@ -7,7 +7,13 @@ class AuthManager {
     this.authorizedUsers = new Map();
     this.authFile = path.join(__dirname, '../../config/authorized_users.json');
     this.ownerId = null;
-    this.loadAuthorizedUsers();
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await this.loadAuthorizedUsers();
+    this.initialized = true;
   }
 
   setOwnerId(ownerId) {

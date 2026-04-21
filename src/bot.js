@@ -21,6 +21,7 @@ class TradingBot {
     this.interactionHandler = InteractionHandler;
     this.channelManager = ChannelManager;
     this.authManager = AuthManager;
+    this.earningsCalendar = EarningsCalendar;
     this.setupEventListeners();
   }
 
@@ -51,8 +52,10 @@ class TradingBot {
       console.warn('⚠️ DISCORD_OWNER_ID not set in .env - authorization system will not work!');
     }
 
-    // Wait for managers to finish loading
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Initialize all managers
+    await this.channelManager.init();
+    await this.authManager.init();
+    await this.earningsCalendar.init();
 
     // Export configuration summary
     const channelSummary = await this.channelManager.exportToReadableFormat();

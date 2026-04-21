@@ -6,7 +6,13 @@ class ChannelManager {
     // Structure: { guildId: { channels: [channelIds], mentionRole: roleId, earningsChannel: channelId, earningsMentionRole: roleId } }
     this.configurations = new Map();
     this.configFile = path.join(__dirname, '../../config/channels.json');
-    this.loadConfigurations();
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await this.loadConfigurations();
+    this.initialized = true;
   }
 
   async loadConfigurations() {
