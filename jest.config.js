@@ -10,5 +10,8 @@ module.exports = {
     '**/tests/**/*.test.js'
   ],
   verbose: true,
-  testTimeout: 10000
+  testTimeout: 10000,
+  clearMocks: true,
+  resetMocks: false,
+  restoreMocks: false
 };
