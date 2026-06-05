@@ -310,10 +310,10 @@ describe('CommentCommand', () => {
       AuthManager.isOwner.mockReturnValue(true);
     });
 
-    test('should broadcast to all user configs across all guilds', async () => {
+    test('should broadcast to owner\'s own configs across all guilds', async () => {
       ChannelManager.getAllAlertConfigs.mockReturnValue([
-        { guildId: 'guild-1', userId: 'user-1', channels: ['channel-1', 'channel-2'], mentionRole: null },
-        { guildId: 'guild-2', userId: 'user-2', channels: ['channel-3'], mentionRole: null }
+        { guildId: 'guild-1', userId: 'user-123', channels: ['channel-1', 'channel-2'], mentionRole: null },
+        { guildId: 'guild-2', userId: 'user-123', channels: ['channel-3'], mentionRole: null }
       ]);
 
       mockInteraction.client.channels.fetch.mockResolvedValue({
@@ -322,6 +322,7 @@ describe('CommentCommand', () => {
 
       await command.execute(mockInteraction);
 
+      expect(ChannelManager.getAllAlertConfigs).toHaveBeenCalledWith('user-123');
       expect(mockInteraction.editReply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('all guilds')

@@ -58,7 +58,7 @@ class CommentCommand {
     let allConfigs;
 
     if (isOwner) {
-      allConfigs = ChannelManager.getAllAlertConfigs();
+      allConfigs = ChannelManager.getAllAlertConfigs(interaction.user.id);
     } else {
       const config = ChannelManager.getUserAlertConfig(interaction.guildId, interaction.user.id);
       allConfigs = (config && config.channels.length > 0) ? [config] : [];

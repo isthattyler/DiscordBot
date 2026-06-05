@@ -412,7 +412,8 @@ describe('LongCommand', () => {
       TradingAlertEmbed.create.mockReturnValue(mockEmbed);
       
       await command.execute(mockInteraction);
-      
+
+      expect(ChannelManager.getAllAlertConfigs).toHaveBeenCalledWith('user-456');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('No servers are configured'),
@@ -421,13 +422,13 @@ describe('LongCommand', () => {
       );
     });
     
-    test('should broadcast to all user configs across all guilds', async () => {
+    test('should broadcast to owner\'s own configs across all guilds', async () => {
       AuthManager.isOwner.mockReturnValue(true);
       mockInteraction.options.getString.mockReturnValue('MNQ');
       
       ChannelManager.getAllAlertConfigs.mockReturnValue([
-        { guildId: 'guild-1', userId: 'user-1', channels: ['channel-1', 'channel-2'], mentionRole: null },
-        { guildId: 'guild-2', userId: 'user-2', channels: ['channel-3'], mentionRole: null }
+        { guildId: 'guild-1', userId: 'user-456', channels: ['channel-1', 'channel-2'], mentionRole: null },
+        { guildId: 'guild-2', userId: 'user-456', channels: ['channel-3'], mentionRole: null }
       ]);
       
       mockInteraction.client.channels.fetch.mockResolvedValue({
@@ -439,6 +440,7 @@ describe('LongCommand', () => {
       
       await command.execute(mockInteraction);
       
+      expect(ChannelManager.getAllAlertConfigs).toHaveBeenCalledWith('user-456');
       expect(mockInteraction.deferReply).toHaveBeenCalled();
       expect(mockInteraction.client.channels.fetch).toHaveBeenCalledTimes(3);
     });
@@ -448,7 +450,7 @@ describe('LongCommand', () => {
       mockInteraction.options.getString.mockReturnValue('MNQ');
       
       ChannelManager.getAllAlertConfigs.mockReturnValue([
-        { guildId: 'guild-1', userId: 'user-1', channels: ['channel-1'], mentionRole: null }
+        { guildId: 'guild-1', userId: 'user-456', channels: ['channel-1'], mentionRole: null }
       ]);
       
       mockInteraction.client.channels.fetch.mockResolvedValue({

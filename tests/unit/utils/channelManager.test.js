@@ -295,6 +295,15 @@ describe('ChannelManager', () => {
       const configs = CM.getAllAlertConfigs();
       expect(configs.length).toBe(0);
     });
+
+    test('should filter by userId when filterUserId provided', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.addChannel('guild-123', 'other-user', 'channel-2');
+      const configs = CM.getAllAlertConfigs(TEST_USER);
+      expect(configs.length).toBe(1);
+      expect(configs[0].userId).toBe(TEST_USER);
+      expect(configs[0].channels).toEqual(['channel-1']);
+    });
   });
 
   describe('getAllEarningsConfigs', () => {

@@ -203,10 +203,11 @@ class ChannelManager {
 
   // ─── Alert Config Getters ───
 
-  getAllAlertConfigs() {
+  getAllAlertConfigs(filterUserId) {
     const allConfigs = [];
     for (const [guildId, guildConfig] of this.configurations) {
       for (const [userId, userConfig] of guildConfig.users) {
+        if (filterUserId && userId !== filterUserId) continue;
         if (userConfig.channels.length > 0) {
           allConfigs.push({
             guildId,
