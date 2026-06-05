@@ -56,7 +56,7 @@ class TradingBot {
 
     // Initialize all managers
     await this.accessManager.init();
-    await this.channelManager.init();
+    await this.channelManager.init(ownerId);
     await this.authManager.init();
     await this.earningsCalendar.init();
 
@@ -107,14 +107,10 @@ class TradingBot {
         return;
       }
 
-      const allConfigs = ChannelManager.getAllConfigurations();
-      let totalServers = 0;
-      let totalChannels = 0;
+      const allConfigs = ChannelManager.getAllEarningsConfigs();
+      let totalConfigs = 0;
 
       for (const config of allConfigs) {
-        // Only post to servers with earnings channel configured
-        if (!config.earningsChannel) continue;
-
         let mentionText = '';
         if (config.earningsMentionRole) {
           mentionText = `<@&${config.earningsMentionRole}> `;
@@ -126,15 +122,14 @@ class TradingBot {
             content: mentionText,
             embeds: [embed]
           });
-          totalChannels++;
-          totalServers++;
+          totalConfigs++;
         } catch (error) {
           console.error(`Failed to send earnings to channel ${config.earningsChannel}:`, error);
         }
       }
 
-      if (totalChannels > 0) {
-        console.log(`✅ Earnings calendar posted to ${totalChannels} channel(s) across ${totalServers} server(s)`);
+      if (totalConfigs > 0) {
+        console.log(`✅ Earnings calendar posted to ${totalConfigs} server(s)`);
       } else {
         console.log('⚠️ No earnings channels configured in any server');
       }

@@ -1,8 +1,10 @@
 const SetupCommand = require('../../../src/commands/SetupCommand');
 const ChannelManager = require('../../../src/utils/ChannelManager');
+const AuthManager = require('../../../src/utils/AuthManager');
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 
 jest.mock('../../../src/utils/ChannelManager');
+jest.mock('../../../src/utils/AuthManager');
 
 describe('SetupCommand', () => {
   let command;
@@ -20,7 +22,8 @@ describe('SetupCommand', () => {
       id: 'channel-123',
       type: ChannelType.GuildText,
       toString: () => '#test-channel',
-      permissionsFor: jest.fn()
+      permissionsFor: jest.fn(),
+      send: jest.fn().mockResolvedValue()
     };
 
     mockRole = {
@@ -54,8 +57,12 @@ describe('SetupCommand', () => {
       },
       guildId: 'guild-123',
       guild: mockGuild,
+      user: { id: 'user-123' },
       reply: jest.fn().mockResolvedValue()
     };
+
+    AuthManager.isAuthorized.mockReturnValue(true);
+    AuthManager.isOwner.mockReturnValue(true);
 
     ChannelManager.addChannel.mockResolvedValue(true);
     ChannelManager.removeChannel.mockResolvedValue(true);
@@ -80,6 +87,10 @@ describe('SetupCommand', () => {
 
     test('should have correct description', () => {
       expect(command.data.description).toContain('Configure');
+    });
+
+    test('should not have ManageChannels permission gate', () => {
+      expect(command.data.default_member_permissions).toBeUndefined();
     });
 
     test('should have alert-channel subcommand group', () => {
@@ -109,6 +120,36 @@ describe('SetupCommand', () => {
     });
   });
 
+  describe('Authorization', () => {
+    test('should reject unauthorized users', async () => {
+      AuthManager.isAuthorized.mockReturnValue(false);
+
+      await command.execute(mockInteraction);
+
+      expect(mockInteraction.reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('not authorized'),
+          ephemeral: true
+        })
+      );
+    });
+
+    test('should reject non-owner for earnings subcommands', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
+      mockInteraction.options.getSubcommandGroup.mockReturnValue('earnings-channel');
+      mockInteraction.options.getSubcommand.mockReturnValue('set');
+
+      await command.execute(mockInteraction);
+
+      expect(mockInteraction.reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('Only the bot owner'),
+          ephemeral: true
+        })
+      );
+    });
+  });
+
   describe('Alert Channel - Add', () => {
     beforeEach(() => {
       mockInteraction.options.getSubcommandGroup.mockReturnValue('alert-channel');
@@ -121,7 +162,7 @@ describe('SetupCommand', () => {
     test('should add channel successfully', async () => {
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.addChannel).toHaveBeenCalledWith('guild-123', 'channel-123');
+      expect(ChannelManager.addChannel).toHaveBeenCalledWith('guild-123', 'user-123', 'channel-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('added'),
@@ -182,7 +223,7 @@ describe('SetupCommand', () => {
     test('should remove channel successfully', async () => {
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.removeChannel).toHaveBeenCalledWith('guild-123', 'channel-123');
+      expect(ChannelManager.removeChannel).toHaveBeenCalledWith('guild-123', 'user-123', 'channel-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('removed'),
@@ -198,7 +239,7 @@ describe('SetupCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.stringContaining('not in the configured'),
+          content: expect.stringContaining('not in your configured'),
           ephemeral: true
         })
       );
@@ -215,7 +256,7 @@ describe('SetupCommand', () => {
     test('should set mention role successfully', async () => {
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.setMentionRole).toHaveBeenCalledWith('guild-123', 'role-123');
+      expect(ChannelManager.setMentionRole).toHaveBeenCalledWith('guild-123', 'user-123', 'role-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('will now mention'),
@@ -234,7 +275,7 @@ describe('SetupCommand', () => {
     test('should remove mention role successfully', async () => {
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.removeMentionRole).toHaveBeenCalledWith('guild-123');
+      expect(ChannelManager.removeMentionRole).toHaveBeenCalledWith('guild-123', 'user-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('removed'),
@@ -367,6 +408,7 @@ describe('SetupCommand', () => {
 
       await command.execute(mockInteraction);
 
+      expect(ChannelManager.getConfiguration).toHaveBeenCalledWith('guild-123', 'user-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: expect.stringContaining('No configuration found'),
@@ -387,7 +429,7 @@ describe('SetupCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.stringContaining('Alert Channels'),
+          content: expect.stringContaining('Your Alert Channels'),
           ephemeral: true
         })
       );
@@ -405,7 +447,7 @@ describe('SetupCommand', () => {
 
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.stringContaining('Alert Mention Role'),
+          content: expect.stringContaining('Your Alert Mention Role'),
           ephemeral: true
         })
       );
@@ -458,7 +500,7 @@ describe('SetupCommand', () => {
 
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.removeChannel).toHaveBeenCalledWith('guild-123', 'deleted-channel');
+      expect(ChannelManager.removeChannel).toHaveBeenCalledWith('guild-123', 'user-123', 'deleted-channel');
       expect(mockInteraction.reply).toHaveBeenCalled();
     });
 
@@ -473,7 +515,7 @@ describe('SetupCommand', () => {
 
       await command.execute(mockInteraction);
 
-      expect(ChannelManager.removeMentionRole).toHaveBeenCalledWith('guild-123');
+      expect(ChannelManager.removeMentionRole).toHaveBeenCalledWith('guild-123', 'user-123');
       expect(mockInteraction.reply).toHaveBeenCalled();
     });
   });

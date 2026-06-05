@@ -31,7 +31,6 @@ class ShortCommand {
   }
 
   async execute(interaction) {
-    // Check authorization
     if (!AuthManager.isAuthorized(interaction.guildId, interaction.user.id)) {
       return await interaction.reply({
         content: '❌ You are not authorized to use this bot. Contact the bot owner for access.',
@@ -51,9 +50,7 @@ class ShortCommand {
 
     const embed = TradingAlertEmbed.create(alertData);
 
-    // Add image to embed if provided
     if (attachment) {
-      // Validate that it's an image
       const validImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
       if (validImageTypes.includes(attachment.contentType)) {
         embed.setImage(attachment.url);
@@ -65,28 +62,36 @@ class ShortCommand {
       }
     }
 
-    // Always broadcast to all servers
     await this.broadcastAlert(interaction, embed);
   }
 
   async broadcastAlert(interaction, embed) {
-    const allConfigs = ChannelManager.getAllConfigurations();
+    const isOwner = AuthManager.isOwner(interaction.user.id);
+    let allConfigs;
+
+    if (isOwner) {
+      allConfigs = ChannelManager.getAllAlertConfigs();
+    } else {
+      const config = ChannelManager.getUserAlertConfig(interaction.guildId, interaction.user.id);
+      allConfigs = (config && config.channels.length > 0) ? [config] : [];
+    }
 
     if (allConfigs.length === 0) {
       return await interaction.reply({
-        content: '❌ No servers are configured for alerts. Use `/setup alert-channel add` to configure channels.',
+        content: isOwner
+          ? '❌ No servers are configured for alerts. Use `/setup alert-channel add` to configure channels.'
+          : '❌ You have no alert channels configured. Use `/setup alert-channel add` to configure your channels.',
         ephemeral: true
       });
     }
 
-    let totalServers = 0;
+    let totalConfigs = 0;
     let totalChannels = 0;
     let failedChannels = [];
 
     await interaction.deferReply({ ephemeral: true });
 
     for (const config of allConfigs) {
-      // Only post to alert channels, not earnings channels
       if (!config.channels || config.channels.length === 0) continue;
 
       let mentionText = '';
@@ -94,7 +99,7 @@ class ShortCommand {
         mentionText = `<@&${config.mentionRole}> `;
       }
 
-      let serverSuccess = false;
+      let configSuccess = false;
 
       for (const channelId of config.channels) {
         try {
@@ -104,20 +109,24 @@ class ShortCommand {
             embeds: [embed]
           });
           totalChannels++;
-          serverSuccess = true;
+          configSuccess = true;
         } catch (error) {
-          console.error(`Failed to send to channel ${channelId} in server ${config.guildId}:`, error);
+          console.error(`Failed to send to channel ${channelId} in guild ${config.guildId}:`, error);
           failedChannels.push(`<#${channelId}>`);
         }
       }
 
-      if (serverSuccess) {
-        totalServers++;
+      if (configSuccess) {
+        totalConfigs++;
       }
     }
 
     let confirmMessage = `✅ **Alert Broadcast Complete**\n\n`;
-    confirmMessage += `📡 Sent to ${totalChannels} channel(s) across ${totalServers} server(s)`;
+    confirmMessage += `📡 Sent to ${totalChannels} channel(s) across ${totalConfigs} configuration(s)`;
+
+    if (isOwner) {
+      confirmMessage += ` (all guilds)`;
+    }
 
     if (failedChannels.length > 0) {
       confirmMessage += `\n\n⚠️ Failed channels: ${failedChannels.slice(0, 5).join(', ')}`;
