@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const ChannelManager = require('../utils/ChannelManager');
+const AuthManager = require('../utils/AuthManager');
 
 class SetupCommand {
   constructor() {
@@ -85,13 +86,32 @@ class SetupCommand {
       .addSubcommand(subcommand =>
         subcommand
           .setName('view')
-          .setDescription('View the current bot configuration'))
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels);
+          .setDescription('View the current bot configuration'));
   }
 
   async execute(interaction) {
+    const guildId = interaction.guildId;
+    const userId = interaction.user.id;
+
+    if (!AuthManager.isAuthorized(guildId, userId)) {
+      return await interaction.reply({
+        content: '❌ You are not authorized to use this bot. Contact the bot owner for access.',
+        ephemeral: true
+      });
+    }
+
     const group = interaction.options.getSubcommandGroup();
     const subcommand = interaction.options.getSubcommand();
+
+    // Earnings subcommands are owner-only
+    if (group === 'earnings-channel' || group === 'earnings-mention') {
+      if (!AuthManager.isOwner(userId)) {
+        return await interaction.reply({
+          content: '❌ Only the bot owner can configure earnings settings.',
+          ephemeral: true
+        });
+      }
+    }
 
     switch (group) {
       case 'alert-channel':
@@ -119,8 +139,8 @@ class SetupCommand {
   async handleAlertChannelAdd(interaction) {
     const channel = interaction.options.getChannel('channel');
     const guildId = interaction.guildId;
+    const userId = interaction.user.id;
 
-    // Check if bot has permissions in the target channel
     const botMember = interaction.guild.members.me;
     const permissions = channel.permissionsFor(botMember);
 
@@ -132,22 +152,20 @@ class SetupCommand {
       });
     }
 
-    // Add the channel
-    const added = await ChannelManager.addChannel(guildId, channel.id);
+    const added = await ChannelManager.addChannel(guildId, userId, channel.id);
 
     if (!added) {
       return await interaction.reply({
-        content: `⚠️ ${channel} is already configured for alerts.`,
+        content: `⚠️ ${channel} is already configured for your alerts.`,
         ephemeral: true
       });
     }
 
     await interaction.reply({
-      content: `✅ ${channel} has been added to the alert channels list.`,
+      content: `✅ ${channel} has been added to your alert channels list.`,
       ephemeral: true
     });
 
-    // Send a test message to the configured channel
     try {
       await channel.send({
         content: '📊 This channel has been added for trading alerts!'
@@ -160,18 +178,19 @@ class SetupCommand {
   async handleAlertChannelRemove(interaction) {
     const channel = interaction.options.getChannel('channel');
     const guildId = interaction.guildId;
+    const userId = interaction.user.id;
 
-    const removed = await ChannelManager.removeChannel(guildId, channel.id);
+    const removed = await ChannelManager.removeChannel(guildId, userId, channel.id);
 
     if (!removed) {
       return await interaction.reply({
-        content: `❌ ${channel} is not in the configured alert channels list.`,
+        content: `❌ ${channel} is not in your configured alert channels list.`,
         ephemeral: true
       });
     }
 
     await interaction.reply({
-      content: `✅ ${channel} has been removed from the alert channels list.`,
+      content: `✅ ${channel} has been removed from your alert channels list.`,
       ephemeral: true
     });
   }
@@ -179,22 +198,24 @@ class SetupCommand {
   async handleAlertMentionSet(interaction) {
     const role = interaction.options.getRole('role');
     const guildId = interaction.guildId;
+    const userId = interaction.user.id;
 
-    await ChannelManager.setMentionRole(guildId, role.id);
+    await ChannelManager.setMentionRole(guildId, userId, role.id);
 
     await interaction.reply({
-      content: `✅ Alerts will now mention ${role}`,
+      content: `✅ Your alerts will now mention ${role}`,
       ephemeral: true
     });
   }
 
   async handleAlertMentionRemove(interaction) {
     const guildId = interaction.guildId;
+    const userId = interaction.user.id;
 
-    await ChannelManager.removeMentionRole(guildId);
+    await ChannelManager.removeMentionRole(guildId, userId);
 
     await interaction.reply({
-      content: `✅ Alert mention role has been removed from alerts.`,
+      content: `✅ Alert mention role has been removed from your alerts.`,
       ephemeral: true
     });
   }
@@ -203,7 +224,6 @@ class SetupCommand {
     const channel = interaction.options.getChannel('channel');
     const guildId = interaction.guildId;
 
-    // Check if bot has permissions in the target channel
     const botMember = interaction.guild.members.me;
     const permissions = channel.permissionsFor(botMember);
 
@@ -222,7 +242,6 @@ class SetupCommand {
       ephemeral: true
     });
 
-    // Send a test message
     try {
       await channel.send({
         content: '📅 This channel is now configured for daily earnings calendar!'
@@ -275,19 +294,20 @@ class SetupCommand {
 
   async handleView(interaction) {
     const guildId = interaction.guildId;
-    const config = ChannelManager.getConfiguration(guildId);
+    const userId = interaction.user.id;
+    const config = ChannelManager.getConfiguration(guildId, userId);
 
     if (config.channels.length === 0 && !config.mentionRole && !config.earningsChannel && !config.earningsMentionRole) {
       return await interaction.reply({
-        content: '📋 No configuration found.\n\nUse `/setup alert-channel add` to add alert channels and `/setup earnings-channel set` to configure earnings.',
+        content: '📋 No configuration found.\n\nUse `/setup alert-channel add` to add your alert channels and `/setup earnings-channel set` to configure earnings.',
         ephemeral: true
       });
     }
 
     let response = '📋 **Current Configuration:**\n\n';
 
-    // Show alert channels
-    response += '**📊 Alert Channels:**\n';
+    // Show user's alert channels
+    response += '**📊 Your Alert Channels:**\n';
     if (config.channels.length > 0) {
       for (const channelId of config.channels) {
         const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
@@ -295,28 +315,28 @@ class SetupCommand {
           response += `• ${channel}\n`;
         } else {
           response += `• <#${channelId}> (channel deleted)\n`;
-          await ChannelManager.removeChannel(guildId, channelId);
+          await ChannelManager.removeChannel(guildId, userId, channelId);
         }
       }
     } else {
       response += '• None configured\n';
     }
 
-    // Show alert mention role
-    response += '\n**👥 Alert Mention Role:** ';
+    // Show user's alert mention role
+    response += '\n**👥 Your Alert Mention Role:** ';
     if (config.mentionRole) {
       const role = await interaction.guild.roles.fetch(config.mentionRole).catch(() => null);
       if (role) {
         response += `${role}`;
       } else {
         response += 'Role deleted';
-        await ChannelManager.removeMentionRole(guildId);
+        await ChannelManager.removeMentionRole(guildId, userId);
       }
     } else {
       response += 'None';
     }
 
-    // Show earnings channel
+    // Show earnings channel (guild-level)
     response += '\n\n**📅 Earnings Channel:** ';
     if (config.earningsChannel) {
       const channel = await interaction.guild.channels.fetch(config.earningsChannel).catch(() => null);
@@ -330,7 +350,7 @@ class SetupCommand {
       response += 'None';
     }
 
-    // Show earnings mention role
+    // Show earnings mention role (guild-level)
     response += '\n**👥 Earnings Mention Role:** ';
     if (config.earningsMentionRole) {
       const role = await interaction.guild.roles.fetch(config.earningsMentionRole).catch(() => null);
@@ -344,7 +364,7 @@ class SetupCommand {
       response += 'None';
     }
 
-    response += '\n\n*Use `/setup` subcommands to modify this configuration.*';
+    response += '\n\n*Use `/setup` subcommands to modify your configuration.*';
 
     await interaction.reply({
       content: response,
