@@ -18,7 +18,8 @@ class TradingBot {
     });
 
     this.commandHandler = new CommandHandler();
-    this.interactionHandler = InteractionHandler;
+    this.interactionHandler = new InteractionHandler();
+    this.accessManager = AccessManager;
     this.channelManager = ChannelManager;
     this.authManager = AuthManager;
     this.earningsCalendar = EarningsCalendar;
