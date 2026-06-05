@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const AuthManager = require('../utils/AuthManager');
+const ChannelManager = require('../utils/ChannelManager');
 
 class AuthCommand {
   constructor() {
@@ -93,8 +94,11 @@ class AuthCommand {
       });
     }
 
+    // Also clean up their alert config
+    await ChannelManager.removeUserConfigs(guildId, user.id);
+
     await interaction.reply({
-      content: `✅ ${user} has been removed from authorized users.`,
+      content: `✅ ${user} has been removed from authorized users and their alert config has been cleaned up.`,
       ephemeral: true
     });
   }

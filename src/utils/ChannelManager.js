@@ -159,6 +159,23 @@ class ChannelManager {
     return true;
   }
 
+  async removeUserConfigs(guildId, userId) {
+    const guildConfig = this.configurations.get(guildId);
+    if (!guildConfig || !guildConfig.users.has(userId)) {
+      return false;
+    }
+
+    guildConfig.users.delete(userId);
+
+    if (guildConfig.users.size === 0 && !guildConfig.earningsChannel && !guildConfig.earningsMentionRole) {
+      this.configurations.delete(guildId);
+    }
+
+    await this._saveToFile();
+    console.log(`🗑️ All alert config removed for user ${userId} in guild ${guildId}`);
+    return true;
+  }
+
   async setMentionRole(guildId, userId, roleId) {
     const userConfig = this._getUserConfig(guildId, userId);
     userConfig.mentionRole = roleId;

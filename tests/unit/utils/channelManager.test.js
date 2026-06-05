@@ -119,6 +119,49 @@ describe('ChannelManager', () => {
     });
   });
 
+  describe('Remove User Configs', () => {
+    test('should remove all user alert config', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-1');
+      const result = await CM.removeUserConfigs('guild-123', TEST_USER);
+      expect(result).toBe(true);
+      const config = CM.getUserAlertConfig('guild-123', TEST_USER);
+      expect(config.channels).toEqual([]);
+      expect(config.mentionRole).toBeNull();
+    });
+
+    test('should delete guild config when no users and no earnings remain', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.removeUserConfigs('guild-123', TEST_USER);
+      expect(CM.configurations.has('guild-123')).toBe(false);
+    });
+
+    test('should keep guild config when earnings channel exists', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.setEarningsChannel('guild-123', 'earnings-ch');
+      await CM.removeUserConfigs('guild-123', TEST_USER);
+      expect(CM.configurations.has('guild-123')).toBe(true);
+    });
+
+    test('should keep other users configs intact', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.addChannel('guild-123', 'other-user', 'channel-2');
+      await CM.removeUserConfigs('guild-123', TEST_USER);
+      const config = CM.getUserAlertConfig('guild-123', 'other-user');
+      expect(config.channels).toEqual(['channel-2']);
+    });
+
+    test('should return false if guild not found', async () => {
+      const result = await CM.removeUserConfigs('unknown-guild', TEST_USER);
+      expect(result).toBe(false);
+    });
+
+    test('should return false if user not found', async () => {
+      const result = await CM.removeUserConfigs('guild-123', 'unknown-user');
+      expect(result).toBe(false);
+    });
+  });
+
   describe('Alert Mention Roles', () => {
     test('should set alert mention role', async () => {
       await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
