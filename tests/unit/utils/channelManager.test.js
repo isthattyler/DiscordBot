@@ -1,5 +1,5 @@
 /**
- * Unit Tests for ChannelManager - Core Functionality
+ * Unit Tests for ChannelManager - Per-User Alert Configuration
  */
 
 const fs = require('fs').promises;
@@ -18,19 +18,20 @@ jest.mock('fs', () => {
 describe('ChannelManager', () => {
   let CM;
   let fsMock;
-  
+  const TEST_USER = 'user-123';
+
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
     delete require.cache[require.resolve('../../../src/utils/ChannelManager')];
-    
+
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
-    
+
     fsMock = require('fs').promises;
     fsMock.readFile.mockRejectedValue({ code: 'ENOENT' });
     fsMock.writeFile.mockResolvedValue();
-    
+
     CM = require('../../../src/utils/ChannelManager');
     await CM.init();
   });
@@ -38,7 +39,7 @@ describe('ChannelManager', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
-  
+
   describe('Initialization', () => {
     test('should initialize', async () => {
       expect(CM.initialized).toBe(true);
@@ -48,148 +49,125 @@ describe('ChannelManager', () => {
       fsMock.readFile.mockRejectedValue(new Error('Read error'));
       jest.resetModules();
       delete require.cache[require.resolve('../../../src/utils/ChannelManager')];
-      
+
       const newCM = require('../../../src/utils/ChannelManager');
       await newCM.init();
 
       expect(console.error).toHaveBeenCalled();
     });
   });
-  
-  describe('Add Channel', () => {
+
+  describe('Alert Channel - Add', () => {
     test('should add channel and return true', async () => {
-      const result = await CM.addChannel('guild-123', 'channel-456');
+      const result = await CM.addChannel('guild-123', TEST_USER, 'channel-456');
       expect(result).toBe(true);
-      expect(CM.getChannels('guild-123')).toContain('channel-456');
+      const config = CM.getUserAlertConfig('guild-123', TEST_USER);
+      expect(config.channels).toContain('channel-456');
     });
-    
+
     test('should not add duplicate', async () => {
-      await CM.addChannel('guild-123', 'channel-456');
-      const result = await CM.addChannel('guild-123', 'channel-456');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      const result = await CM.addChannel('guild-123', TEST_USER, 'channel-456');
       expect(result).toBe(false);
     });
 
-    test('should create guild config if not exists', async () => {
-      await CM.addChannel('new-guild', 'channel-1');
+    test('should create guild and user config if not exists', async () => {
+      await CM.addChannel('new-guild', TEST_USER, 'channel-1');
       expect(CM.configurations.has('new-guild')).toBe(true);
+      const guildConfig = CM.configurations.get('new-guild');
+      expect(guildConfig.users.has(TEST_USER)).toBe(true);
     });
   });
-  
-  describe('Remove Channel', () => {
+
+  describe('Alert Channel - Remove', () => {
     test('should remove channel', async () => {
-      await CM.addChannel('guild-123', 'channel-456');
-      const result = await CM.removeChannel('guild-123', 'channel-456');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      const result = await CM.removeChannel('guild-123', TEST_USER, 'channel-456');
       expect(result).toBe(true);
     });
 
     test('should return false if guild not found', async () => {
-      const result = await CM.removeChannel('unknown-guild', 'channel-1');
+      const result = await CM.removeChannel('unknown-guild', TEST_USER, 'channel-1');
+      expect(result).toBe(false);
+    });
+
+    test('should return false if user not found', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      const result = await CM.removeChannel('guild-123', 'other-user', 'channel-456');
       expect(result).toBe(false);
     });
 
     test('should return false if channel not found', async () => {
-      await CM.addChannel('guild-123', 'channel-456');
-      const result = await CM.removeChannel('guild-123', 'unknown-channel');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      const result = await CM.removeChannel('guild-123', TEST_USER, 'unknown-channel');
       expect(result).toBe(false);
     });
 
-    test('should delete guild config when last channel removed and no mention role', async () => {
-      await CM.addChannel('guild-123', 'channel-456');
-      await CM.removeChannel('guild-123', 'channel-456');
+    test('should remove user config when last channel removed and no mention role', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      await CM.removeChannel('guild-123', TEST_USER, 'channel-456');
+      // Guild config is deleted entirely when no users and no earnings remain
       expect(CM.configurations.has('guild-123')).toBe(false);
     });
 
-    test('should keep guild config when mention role exists', async () => {
-      await CM.addChannel('guild-123', 'channel-456');
-      await CM.setMentionRole('guild-123', 'role-123');
-      await CM.removeChannel('guild-123', 'channel-456');
+    test('should keep user config when mention role exists', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-456');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeChannel('guild-123', TEST_USER, 'channel-456');
+      const guildConfig = CM.configurations.get('guild-123');
+      expect(guildConfig.users.has(TEST_USER)).toBe(true);
+    });
+  });
+
+  describe('Alert Mention Roles', () => {
+    test('should set alert mention role', async () => {
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      const config = CM.getUserAlertConfig('guild-123', TEST_USER);
+      expect(config.mentionRole).toBe('role-123');
+    });
+
+    test('should remove mention role', async () => {
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeMentionRole('guild-123', TEST_USER);
+      const config = CM.getUserAlertConfig('guild-123', TEST_USER);
+      expect(config.mentionRole).toBeNull();
+    });
+
+    test('should remove user config when mention role removed and no channels', async () => {
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeMentionRole('guild-123', TEST_USER);
+      // Guild config is deleted entirely when no users and no earnings remain
+      expect(CM.configurations.has('guild-123')).toBe(false);
+    });
+
+    test('should keep user config when channels exist', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeMentionRole('guild-123', TEST_USER);
+      const guildConfig = CM.configurations.get('guild-123');
+      expect(guildConfig.users.has(TEST_USER)).toBe(true);
+    });
+
+    test('should delete guild config when everything removed', async () => {
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeMentionRole('guild-123', TEST_USER);
+      expect(CM.configurations.has('guild-123')).toBe(false);
+    });
+
+    test('should keep guild config when earnings channel exists', async () => {
+      await CM.setEarningsChannel('guild-123', 'earnings-channel');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-123');
+      await CM.removeMentionRole('guild-123', TEST_USER);
       expect(CM.configurations.has('guild-123')).toBe(true);
     });
   });
 
-  describe('Change Channel', () => {
-    test('should replace old channel with new', async () => {
-      await CM.addChannel('guild-123', 'old-channel');
-      const result = await CM.changeChannel('guild-123', 'old-channel', 'new-channel');
-      expect(result).toBe(true);
-      expect(CM.getChannels('guild-123')).toContain('new-channel');
-      expect(CM.getChannels('guild-123')).not.toContain('old-channel');
-    });
-
-    test('should return false if guild not found', async () => {
-      const result = await CM.changeChannel('unknown-guild', 'old', 'new');
-      expect(result).toBe(false);
-    });
-
-    test('should return false if old channel not found', async () => {
-      await CM.addChannel('guild-123', 'existing-channel');
-      const result = await CM.changeChannel('guild-123', 'missing-channel', 'new-channel');
-      expect(result).toBe(false);
-    });
-
-    test('should return duplicate if new channel already exists', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.addChannel('guild-123', 'channel-2');
-      const result = await CM.changeChannel('guild-123', 'channel-1', 'channel-2');
-      expect(result).toBe('duplicate');
-    });
-  });
-
-  describe('Remove All Channels', () => {
-    test('should remove all channels', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.addChannel('guild-123', 'channel-2');
-      const result = await CM.removeAllChannels('guild-123');
-      expect(result).toBe(2);
-      expect(CM.getChannels('guild-123')).toHaveLength(0);
-    });
-
-    test('should return false if guild not found', async () => {
-      const result = await CM.removeAllChannels('unknown-guild');
-      expect(result).toBe(false);
-    });
-
-    test('should return false if no channels', async () => {
-      await CM.setMentionRole('guild-123', 'role-1');
-      const result = await CM.removeAllChannels('guild-123');
-      expect(result).toBe(false);
-    });
-
-    test('should delete guild config if no mention role', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.removeAllChannels('guild-123');
-      expect(CM.configurations.has('guild-123')).toBe(false);
-    });
-
-    test('should keep guild config if mention role exists', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.setMentionRole('guild-123', 'role-1');
-      await CM.removeAllChannels('guild-123');
-      expect(CM.configurations.has('guild-123')).toBe(true);
-    });
-  });
-
-  describe('Set Channel', () => {
-    test('should replace all channels with single channel', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.addChannel('guild-123', 'channel-2');
-      await CM.setChannel('guild-123', 'new-channel');
-      expect(CM.getChannels('guild-123')).toEqual(['new-channel']);
-    });
-
-    test('should keep existing mention role', async () => {
-      await CM.setMentionRole('guild-123', 'role-1');
-      await CM.setChannel('guild-123', 'channel-1');
-      expect(CM.getMentionRole('guild-123')).toBe('role-1');
-    });
-  });
-  
   describe('Earnings Channel', () => {
     test('should set earnings channel', async () => {
       await CM.setEarningsChannel('guild-123', 'earnings-channel');
       expect(CM.getEarningsChannel('guild-123')).toBe('earnings-channel');
     });
-    
+
     test('should remove earnings channel', async () => {
       await CM.setEarningsChannel('guild-123', 'earnings-channel');
       const result = await CM.removeEarningsChannel('guild-123');
@@ -234,97 +212,96 @@ describe('ChannelManager', () => {
       expect(CM.configurations.has('guild-123')).toBe(false);
     });
   });
-  
-  describe('Mention Roles', () => {
-    test('should set alert mention role', async () => {
-      await CM.setMentionRole('guild-123', 'role-123');
-      expect(CM.getMentionRole('guild-123')).toBe('role-123');
-    });
-
-    test('should remove mention role', async () => {
-      await CM.setMentionRole('guild-123', 'role-123');
-      await CM.removeMentionRole('guild-123');
-      expect(CM.getMentionRole('guild-123')).toBeNull();
-    });
-
-    test('should delete guild config when mention role removed and no channels', async () => {
-      await CM.setMentionRole('guild-123', 'role-123');
-      await CM.removeMentionRole('guild-123');
-      expect(CM.configurations.has('guild-123')).toBe(false);
-    });
-
-    test('should keep guild config when channels exist', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.setMentionRole('guild-123', 'role-123');
-      await CM.removeMentionRole('guild-123');
-      expect(CM.configurations.has('guild-123')).toBe(true);
-    });
-
-    test('should keep guild config when earnings channel exists', async () => {
-      await CM.setEarningsChannel('guild-123', 'earnings-channel');
-      await CM.setMentionRole('guild-123', 'role-123');
-      await CM.removeMentionRole('guild-123');
-      expect(CM.configurations.has('guild-123')).toBe(true);
-    });
-  });
 
   describe('Getters', () => {
-    test('should return empty array for missing channels', () => {
-      expect(CM.getChannels('unknown-guild')).toEqual([]);
+    test('should return empty channels for unknown user', () => {
+      const config = CM.getUserAlertConfig('unknown-guild', 'unknown-user');
+      expect(config.channels).toEqual([]);
     });
 
-    test('should return null for missing mention role', () => {
-      expect(CM.getMentionRole('unknown-guild')).toBeNull();
-    });
-
-    test('should return falsy for hasChannels when no channels', () => {
-      expect(CM.hasChannels('unknown-guild')).toBeFalsy();
-    });
-
-    test('should return true for hasChannels when channels exist', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      expect(CM.hasChannels('guild-123')).toBe(true);
+    test('should return null mention role for unknown user', () => {
+      const config = CM.getUserAlertConfig('unknown-guild', 'unknown-user');
+      expect(config.mentionRole).toBeNull();
     });
 
     test('should return default config for missing guild', () => {
-      const config = CM.getConfiguration('unknown-guild');
+      const config = CM.getConfiguration('unknown-guild', TEST_USER);
       expect(config.channels).toEqual([]);
       expect(config.mentionRole).toBeNull();
     });
+
+    test('should return user config when channels exist', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      const config = CM.getUserAlertConfig('guild-123', TEST_USER);
+      expect(config.channels).toEqual(['channel-1']);
+    });
   });
-  
-  describe('Get All Configurations', () => {
-    test('should return configurations', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      const configs = CM.getAllConfigurations();
+
+  describe('getAllAlertConfigs', () => {
+    test('should return all user alert configs', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      const configs = CM.getAllAlertConfigs();
       expect(configs.length).toBeGreaterThan(0);
+      expect(configs[0].guildId).toBe('guild-123');
+      expect(configs[0].userId).toBe(TEST_USER);
+      expect(configs[0].channels).toContain('channel-1');
     });
 
-    test('should include earnings fields', async () => {
+    test('should skip users with no channels', async () => {
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-1');
+      const configs = CM.getAllAlertConfigs();
+      expect(configs.length).toBe(0);
+    });
+  });
+
+  describe('getAllEarningsConfigs', () => {
+    test('should return earnings configs', async () => {
       await CM.setEarningsChannel('guild-123', 'earnings-ch');
       await CM.setEarningsMentionRole('guild-123', 'earnings-role');
-      const configs = CM.getAllConfigurations();
+      const configs = CM.getAllEarningsConfigs();
+      expect(configs.length).toBe(1);
       expect(configs[0].earningsChannel).toBe('earnings-ch');
       expect(configs[0].earningsMentionRole).toBe('earnings-role');
+    });
+
+    test('should skip guilds with no earnings channel', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      const configs = CM.getAllEarningsConfigs();
+      expect(configs.length).toBe(0);
+    });
+  });
+
+  describe('getConfiguration (combined)', () => {
+    test('should return user alert + guild earnings config', async () => {
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-1');
+      await CM.setEarningsChannel('guild-123', 'earnings-ch');
+      await CM.setEarningsMentionRole('guild-123', 'earnings-role');
+
+      const config = CM.getConfiguration('guild-123', TEST_USER);
+      expect(config.channels).toEqual(['channel-1']);
+      expect(config.mentionRole).toBe('role-1');
+      expect(config.earningsChannel).toBe('earnings-ch');
+      expect(config.earningsMentionRole).toBe('earnings-role');
     });
   });
 
   describe('Export To Readable Format', () => {
     test('should export configurations', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
       const output = await CM.exportToReadableFormat();
       expect(output).toContain('guild-123');
-      expect(output).toContain('Alert Channels');
+      expect(output).toContain('User ' + TEST_USER);
     });
 
     test('should include earnings info', async () => {
       await CM.setEarningsChannel('guild-123', 'earnings-ch');
       const output = await CM.exportToReadableFormat();
-      expect(output).toContain('Earnings Channel');
+      expect(output).toContain('Earnings: earnings-ch');
     });
 
     test('should show None for empty channels', async () => {
-      await CM.setMentionRole('guild-123', 'role-1');
+      await CM.setMentionRole('guild-123', TEST_USER, 'role-1');
       const output = await CM.exportToReadableFormat();
       expect(output).toContain('None');
     });
@@ -332,19 +309,19 @@ describe('ChannelManager', () => {
 
   describe('Persistence', () => {
     test('should save on add channel', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
       expect(fsMock.writeFile).toHaveBeenCalled();
     });
 
     test('should save on remove channel', async () => {
-      await CM.addChannel('guild-123', 'channel-1');
-      await CM.removeChannel('guild-123', 'channel-1');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
+      await CM.removeChannel('guild-123', TEST_USER, 'channel-1');
       expect(fsMock.writeFile).toHaveBeenCalled();
     });
 
     test('should handle save error', async () => {
       fsMock.writeFile.mockRejectedValue(new Error('Disk full'));
-      await CM.addChannel('guild-123', 'channel-1');
+      await CM.addChannel('guild-123', TEST_USER, 'channel-1');
       expect(console.error).toHaveBeenCalled();
     });
   });
