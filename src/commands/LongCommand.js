@@ -1,17 +1,29 @@
-const { SlashCommandBuilder } = require('discord.js');
-const CommentEmbed = require('../embeds/CommentEmbed');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const TradingAlertEmbed = require('../embeds/TradingAlertEmbed');
 const ChannelManager = require('../utils/ChannelManager');
 const AuthManager = require('../utils/AuthManager');
 
-class CommentCommand {
+class LongCommand {
   constructor() {
     this.data = new SlashCommandBuilder()
-      .setName('comment')
-      .setDescription('Post a comment about a trade to all configured servers')
+      .setName('long')
+      .setDescription('Send a long trading alert to all configured servers')
       .addStringOption(option =>
-        option.setName('message')
-          .setDescription('Your comment or analysis')
+        option.setName('ticker')
+          .setDescription('The ticker symbol (e.g., MNQ, ES, NQ)')
           .setRequired(true))
+      .addStringOption(option =>
+        option.setName('entry')
+          .setDescription('Entry price')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('stoploss')
+          .setDescription('Stop loss price (optional)')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('target')
+          .setDescription('Target/Take profit price (optional)')
+          .setRequired(false))
       .addAttachmentOption(option =>
         option.setName('image')
           .setDescription('Chart or screenshot to attach (optional)')
@@ -27,18 +39,17 @@ class CommentCommand {
       });
     }
 
-    // Process the message to convert literal \n to actual newlines
-    let message = interaction.options.getString('message');
-    message = message.replace(/\\n/g, '\n');
-
-    const commentData = {
-      message: message,
-      author: interaction.user.username,
+    const alertData = {
+      ticker: interaction.options.getString('ticker'),
+      position: 'long',
+      entry: interaction.options.getString('entry'),
+      stoploss: interaction.options.getString('stoploss'),
+      target: interaction.options.getString('target'),
     };
 
     const attachment = interaction.options.getAttachment('image');
 
-    const embed = CommentEmbed.create(commentData);
+    const embed = TradingAlertEmbed.create(alertData);
 
     // Add image to embed if provided
     if (attachment) {
@@ -55,15 +66,15 @@ class CommentCommand {
     }
 
     // Always broadcast to all servers
-    await this.broadcastComment(interaction, embed);
+    await this.broadcastAlert(interaction, embed);
   }
 
-  async broadcastComment(interaction, embed) {
+  async broadcastAlert(interaction, embed) {
     const allConfigs = ChannelManager.getAllConfigurations();
-    
+
     if (allConfigs.length === 0) {
       return await interaction.reply({
-        content: '❌ No servers are configured for comments. Use `/setup add` to configure channels.',
+        content: '❌ No servers are configured for alerts. Use `/setup alert-channel add` to configure channels.',
         ephemeral: true
       });
     }
@@ -75,7 +86,8 @@ class CommentCommand {
     await interaction.deferReply({ ephemeral: true });
 
     for (const config of allConfigs) {
-      if (config.channels.length === 0) continue;
+      // Only post to alert channels, not earnings channels
+      if (!config.channels || config.channels.length === 0) continue;
 
       let mentionText = '';
       if (config.mentionRole) {
@@ -87,9 +99,9 @@ class CommentCommand {
       for (const channelId of config.channels) {
         try {
           const channel = await interaction.client.channels.fetch(channelId);
-          await channel.send({ 
+          await channel.send({
             content: mentionText,
-            embeds: [embed] 
+            embeds: [embed]
           });
           totalChannels++;
           serverSuccess = true;
@@ -104,9 +116,9 @@ class CommentCommand {
       }
     }
 
-    let confirmMessage = `✅ **Comment Broadcast Complete**\n\n`;
+    let confirmMessage = `✅ **Alert Broadcast Complete**\n\n`;
     confirmMessage += `📡 Sent to ${totalChannels} channel(s) across ${totalServers} server(s)`;
-    
+
     if (failedChannels.length > 0) {
       confirmMessage += `\n\n⚠️ Failed channels: ${failedChannels.slice(0, 5).join(', ')}`;
       if (failedChannels.length > 5) {
@@ -120,4 +132,4 @@ class CommentCommand {
   }
 }
 
-module.exports = CommentCommand;
+module.exports = LongCommand;

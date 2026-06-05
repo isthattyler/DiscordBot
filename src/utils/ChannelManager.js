@@ -3,10 +3,16 @@ const path = require('path');
 
 class ChannelManager {
   constructor() {
-    // Structure: { guildId: { channels: [channelIds], mentionRole: roleId } }
+    // Structure: { guildId: { channels: [channelIds], mentionRole: roleId, earningsChannel: channelId, earningsMentionRole: roleId } }
     this.configurations = new Map();
     this.configFile = path.join(__dirname, '../../config/channels.json');
-    this.loadConfigurations();
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await this.loadConfigurations();
+    this.initialized = true;
   }
 
   async loadConfigurations() {
@@ -39,7 +45,7 @@ class ChannelManager {
     if (!this.configurations.has(guildId)) {
       this.configurations.set(guildId, { channels: [], mentionRole: null });
     }
-    
+
     const config = this.configurations.get(guildId);
     if (!config.channels.includes(channelId)) {
       config.channels.push(channelId);
@@ -57,7 +63,7 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const index = config.channels.indexOf(oldChannelId);
-    
+
     if (index === -1) {
       return false; // Old channel not found
     }
@@ -81,15 +87,15 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const index = config.channels.indexOf(channelId);
-    
+
     if (index > -1) {
       config.channels.splice(index, 1);
-      
+
       // If no channels left, remove the entire guild config
       if (config.channels.length === 0 && !config.mentionRole) {
         this.configurations.delete(guildId);
       }
-      
+
       await this.saveConfigurations();
       console.log(`🗑️ Channel ${channelId} removed from guild ${guildId}`);
       return true;
@@ -104,18 +110,18 @@ class ChannelManager {
 
     const config = this.configurations.get(guildId);
     const channelCount = config.channels.length;
-    
+
     if (channelCount === 0) {
       return false;
     }
 
     config.channels = [];
-    
+
     // If no mention role either, remove the entire guild config
     if (!config.mentionRole) {
       this.configurations.delete(guildId);
     }
-    
+
     await this.saveConfigurations();
     console.log(`🗑️ All ${channelCount} channels removed from guild ${guildId}`);
     return channelCount;
@@ -123,8 +129,8 @@ class ChannelManager {
 
   async setChannel(guildId, channelId) {
     // Change/replace all channels with just this one
-    this.configurations.set(guildId, { 
-      channels: [channelId], 
+    this.configurations.set(guildId, {
+      channels: [channelId],
       mentionRole: this.getMentionRole(guildId) // Keep existing mention role
     });
     await this.saveConfigurations();
@@ -144,16 +150,79 @@ class ChannelManager {
   async removeMentionRole(guildId) {
     if (this.configurations.has(guildId)) {
       this.configurations.get(guildId).mentionRole = null;
-      
+
       // If no channels either, remove the entire guild config
       const config = this.configurations.get(guildId);
-      if (config.channels.length === 0) {
+      if (config.channels.length === 0 && !config.earningsChannel) {
         this.configurations.delete(guildId);
       }
-      
+
       await this.saveConfigurations();
       console.log(`🗑️ Mention role removed for guild ${guildId}`);
     }
+  }
+
+  async setEarningsChannel(guildId, channelId) {
+    if (!this.configurations.has(guildId)) {
+      this.configurations.set(guildId, { channels: [], mentionRole: null, earningsChannel: channelId, earningsMentionRole: null });
+    } else {
+      this.configurations.get(guildId).earningsChannel = channelId;
+    }
+    await this.saveConfigurations();
+    console.log(`✅ Earnings channel configured for guild ${guildId}: ${channelId}`);
+  }
+
+  async removeEarningsChannel(guildId) {
+    if (!this.configurations.has(guildId)) {
+      return false;
+    }
+
+    const config = this.configurations.get(guildId);
+    config.earningsChannel = null;
+
+    // If no other config, remove the entire guild config
+    if (config.channels.length === 0 && !config.mentionRole && !config.earningsMentionRole) {
+      this.configurations.delete(guildId);
+    }
+
+    await this.saveConfigurations();
+    console.log(`🗑️ Earnings channel removed for guild ${guildId}`);
+    return true;
+  }
+
+  async setEarningsMentionRole(guildId, roleId) {
+    if (!this.configurations.has(guildId)) {
+      this.configurations.set(guildId, { channels: [], mentionRole: null, earningsChannel: null, earningsMentionRole: roleId });
+    } else {
+      this.configurations.get(guildId).earningsMentionRole = roleId;
+    }
+    await this.saveConfigurations();
+    console.log(`✅ Earnings mention role set for guild ${guildId}: ${roleId}`);
+  }
+
+  async removeEarningsMentionRole(guildId) {
+    if (this.configurations.has(guildId)) {
+      this.configurations.get(guildId).earningsMentionRole = null;
+
+      // If no other config, remove the entire guild config
+      const config = this.configurations.get(guildId);
+      if (config.channels.length === 0 && !config.mentionRole && !config.earningsChannel) {
+        this.configurations.delete(guildId);
+      }
+
+      await this.saveConfigurations();
+      console.log(`🗑️ Earnings mention role removed for guild ${guildId}`);
+    }
+  }
+
+  getEarningsChannel(guildId) {
+    const config = this.configurations.get(guildId);
+    return config ? config.earningsChannel : null;
+  }
+
+  getEarningsMentionRole(guildId) {
+    const config = this.configurations.get(guildId);
+    return config ? config.earningsMentionRole : null;
   }
 
   getChannels(guildId) {
@@ -176,21 +245,27 @@ class ChannelManager {
   }
 
   getAllConfigurations() {
-  // Return all guild configurations for broadcasting
-  return Array.from(this.configurations.entries()).map(([guildId, config]) => ({
-    guildId,
-    channels: config.channels,
-    mentionRole: config.mentionRole
-  }));
-}
+    // Return all guild configurations for broadcasting
+    return Array.from(this.configurations.entries()).map(([guildId, config]) => ({
+      guildId,
+      channels: config.channels,
+      mentionRole: config.mentionRole,
+      earningsChannel: config.earningsChannel,
+      earningsMentionRole: config.earningsMentionRole
+    }));
+  }
 
   async exportToReadableFormat() {
     // Export in the format: Server name: channel 1, channel 2
     const output = [];
     for (const [guildId, config] of this.configurations) {
-      const channelList = config.channels.join(', ');
+      const channelList = config.channels.length > 0 ? config.channels.join(', ') : 'None';
       const mentionInfo = config.mentionRole ? ` | Mention: ${config.mentionRole}` : '';
-      output.push(`${guildId}: ${channelList}${mentionInfo}`);
+      const earningsChannel = config.earningsChannel || 'None';
+      const earningsMentionInfo = config.earningsMentionRole ? ` | Mention: ${config.earningsMentionRole}` : '';
+      output.push(`${guildId}:`);
+      output.push(`  Alert Channels: ${channelList}${mentionInfo}`);
+      output.push(`  Earnings Channel: ${earningsChannel}${earningsMentionInfo}`);
     }
     return output.join('\n');
   }

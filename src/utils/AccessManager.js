@@ -7,13 +7,19 @@ const config = require('./ConfigLoader');
 class AccessManager {
   constructor() {
     this.pineScripts = null;
-    this.loadPineScripts();
+    this.initialized = false;
   }
 
-  loadPineScripts() {
+  async init() {
+    if (this.initialized) return;
+    await this.loadPineScripts();
+    this.initialized = true;
+  }
+
+  async loadPineScripts() {
     try {
       const scriptsPath = path.join(__dirname, '../../config/pine_scripts.json');
-      const fileContents = fs.readFileSync(scriptsPath, 'utf8');
+      const fileContents = await fs.promises.readFile(scriptsPath, 'utf8');
       this.pineScripts = JSON.parse(fileContents);
       console.log('✅ Pine scripts loaded successfully');
     } catch (error) {
@@ -30,9 +36,9 @@ class AccessManager {
     return this.pineScripts[scriptName] || [];
   }
 
-async grantAccess(scriptName, username) {
+  async grantAccess(scriptName, username) {
     const pineIds = this.getPineIds(scriptName);
-    
+
     if (pineIds.length === 0) {
       return {
         success: false,
@@ -89,7 +95,7 @@ async grantAccess(scriptName, username) {
           try {
             console.log('✅ Response status:', res.statusCode);
             console.log('📥 Response data:', data);
-            
+
             if (res.statusCode >= 200 && res.statusCode < 300) {
               const jsonData = JSON.parse(data);
               resolve(jsonData);
@@ -163,6 +169,17 @@ async grantAccess(scriptName, username) {
     }
     return url;
   }
+
+  reset() {
+    this.pineScripts = null;
+    this.initialized = false;
+  }
+
+  setPineScripts(scripts) {
+    this.pineScripts = scripts;
+  }
 }
 
-module.exports = new AccessManager();
+const instance = new AccessManager();
+module.exports = instance;
+module.exports.AccessManager = AccessManager;

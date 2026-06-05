@@ -1,10 +1,12 @@
 const { REST, Routes } = require('discord.js');
 const config = require('../utils/ConfigLoader');
-const AlertCommand = require('../commands/AlertCommand');
+const LongCommand = require('../commands/LongCommand');
+const ShortCommand = require('../commands/ShortCommand');
 const SetupCommand = require('../commands/SetupCommand');
 const CommentCommand = require('../commands/CommentCommand');
 const AuthCommand = require('../commands/AuthCommand');
 const AccessCommand = require('../commands/AccessCommand');
+const EarningsCommand = require('../commands/EarningsCommand');
 
 class CommandHandler {
   constructor() {
@@ -15,31 +17,37 @@ class CommandHandler {
 
   loadCommands() {
     // Register all commands here
-    const alertCommand = new AlertCommand();
+    const longCommand = new LongCommand();
+    const shortCommand = new ShortCommand();
     const setupCommand = new SetupCommand();
     const commentCommand = new CommentCommand();
     const authCommand = new AuthCommand();
     const accessCommand = new AccessCommand();
-    
-    this.commands.set('alert', alertCommand);
+    const earningsCommand = new EarningsCommand();
+
+    this.commands.set('long', longCommand);
+    this.commands.set('short', shortCommand);
     this.commands.set('setup', setupCommand);
     this.commands.set('comment', commentCommand);
     this.commands.set('auth', authCommand);
     this.commands.set('access', accessCommand);
-    
-    this.commandData.push(alertCommand.data.toJSON());
+    this.commands.set('earnings', earningsCommand);
+
+    this.commandData.push(longCommand.data.toJSON());
+    this.commandData.push(shortCommand.data.toJSON());
     this.commandData.push(setupCommand.data.toJSON());
     this.commandData.push(commentCommand.data.toJSON());
     this.commandData.push(authCommand.data.toJSON());
     this.commandData.push(accessCommand.data.toJSON());
-    
-    console.log('✅ Commands loaded: alert, setup, comment, auth, access');
+    this.commandData.push(earningsCommand.data.toJSON());
+
+    console.log('✅ Commands loaded: long, short, setup, comment, auth, access, earnings');
   }
 
   async registerCommands() {
     try {
       const rest = new REST({ version: '10' }).setToken(config.getToken());
-      
+
       console.log('🔄 Started refreshing application (/) commands.');
 
       await rest.put(
@@ -57,7 +65,7 @@ class CommandHandler {
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
-    
+
     if (!command) {
       console.error(`Command ${interaction.commandName} not found`);
       return;
@@ -67,12 +75,12 @@ class CommandHandler {
       await command.execute(interaction);
     } catch (error) {
       console.error('Error executing command:', error);
-      
+
       const errorMessage = {
         content: 'There was an error executing this command!',
         ephemeral: true,
       };
-      
+
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(errorMessage);
       } else {

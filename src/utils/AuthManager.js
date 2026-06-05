@@ -7,7 +7,13 @@ class AuthManager {
     this.authorizedUsers = new Map();
     this.authFile = path.join(__dirname, '../../config/authorized_users.json');
     this.ownerId = null;
-    this.loadAuthorizedUsers();
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await this.loadAuthorizedUsers();
+    this.initialized = true;
   }
 
   setOwnerId(ownerId) {
@@ -45,7 +51,7 @@ class AuthManager {
     if (!this.authorizedUsers.has(guildId)) {
       this.authorizedUsers.set(guildId, []);
     }
-    
+
     const users = this.authorizedUsers.get(guildId);
     if (!users.includes(userId)) {
       users.push(userId);
@@ -63,15 +69,15 @@ class AuthManager {
 
     const users = this.authorizedUsers.get(guildId);
     const index = users.indexOf(userId);
-    
+
     if (index > -1) {
       users.splice(index, 1);
-      
+
       // If no users left, remove the entire guild entry
       if (users.length === 0) {
         this.authorizedUsers.delete(guildId);
       }
-      
+
       await this.saveAuthorizedUsers();
       console.log(`🗑️ User ${userId} removed from guild ${guildId}`);
       return true;
@@ -106,6 +112,14 @@ class AuthManager {
     }
     return output.join('\n');
   }
+
+  reset() {
+    this.authorizedUsers = new Map();
+    this.ownerId = null;
+    this.initialized = false;
+  }
 }
 
-module.exports = new AuthManager();
+const instance = new AuthManager();
+module.exports = instance;
+module.exports.AuthManager = AuthManager;

@@ -5,55 +5,83 @@ class SetupCommand {
   constructor() {
     this.data = new SlashCommandBuilder()
       .setName('setup')
-      .setDescription('Configure the bot for trading alerts')
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('add')
-          .setDescription('Add a channel for trading alerts')
-          .addChannelOption(option =>
-            option.setName('channel')
-              .setDescription('The channel where alerts will be sent')
-              .addChannelTypes(ChannelType.GuildText)
-              .setRequired(true)))
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('change')
-          .setDescription('Replace one channel with another')
-          .addChannelOption(option =>
-            option.setName('old-channel')
-              .setDescription('The channel to replace')
-              .addChannelTypes(ChannelType.GuildText)
-              .setRequired(true))
-          .addChannelOption(option =>
-            option.setName('new-channel')
-              .setDescription('The new channel to use')
-              .addChannelTypes(ChannelType.GuildText)
-              .setRequired(true)))
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('remove')
-          .setDescription('Remove a channel from alert configuration')
-          .addChannelOption(option =>
-            option.setName('channel')
-              .setDescription('The channel to remove')
-              .addChannelTypes(ChannelType.GuildText)
-              .setRequired(true)))
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('remove-all')
-          .setDescription('Remove all configured channels at once'))
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('mention')
-          .setDescription('Set the role to mention with alerts')
-          .addRoleOption(option =>
-            option.setName('role')
-              .setDescription('Role to mention (e.g., @everyone, @Traders)')
-              .setRequired(true)))
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('remove-mention')
-          .setDescription('Remove the mention role from alerts'))
+      .setDescription('Configure the bot for trading alerts and earnings')
+      // Alert Channel Commands
+      .addSubcommandGroup(group =>
+        group
+          .setName('alert-channel')
+          .setDescription('Manage alert channels')
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('add')
+              .setDescription('Add a channel for trading alerts')
+              .addChannelOption(option =>
+                option.setName('channel')
+                  .setDescription('The channel where alerts will be sent')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true)))
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('remove')
+              .setDescription('Remove a channel from alert configuration')
+              .addChannelOption(option =>
+                option.setName('channel')
+                  .setDescription('The channel to remove')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true))))
+      // Alert Mention Commands
+      .addSubcommandGroup(group =>
+        group
+          .setName('alert-mention')
+          .setDescription('Manage alert mention role')
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('set')
+              .setDescription('Set the role to mention with alerts')
+              .addRoleOption(option =>
+                option.setName('role')
+                  .setDescription('Role to mention (e.g., @everyone, @Traders)')
+                  .setRequired(true)))
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('remove')
+              .setDescription('Remove the mention role from alerts')))
+      // Earnings Channel Commands
+      .addSubcommandGroup(group =>
+        group
+          .setName('earnings-channel')
+          .setDescription('Manage earnings calendar channel')
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('set')
+              .setDescription('Set the channel for daily earnings calendar')
+              .addChannelOption(option =>
+                option.setName('channel')
+                  .setDescription('The channel where earnings will be posted')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true)))
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('remove')
+              .setDescription('Remove the earnings channel')))
+      // Earnings Mention Commands
+      .addSubcommandGroup(group =>
+        group
+          .setName('earnings-mention')
+          .setDescription('Manage earnings mention role')
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('set')
+              .setDescription('Set the role to mention with earnings')
+              .addRoleOption(option =>
+                option.setName('role')
+                  .setDescription('Role to mention (e.g., @everyone, @Earnings Watchers)')
+                  .setRequired(true)))
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName('remove')
+              .setDescription('Remove the earnings mention role')))
+      // View Command
       .addSubcommand(subcommand =>
         subcommand
           .setName('view')
@@ -62,34 +90,33 @@ class SetupCommand {
   }
 
   async execute(interaction) {
+    const group = interaction.options.getSubcommandGroup();
     const subcommand = interaction.options.getSubcommand();
 
-    switch (subcommand) {
-      case 'add':
-        await this.handleAdd(interaction);
+    switch (group) {
+      case 'alert-channel':
+        if (subcommand === 'add') await this.handleAlertChannelAdd(interaction);
+        if (subcommand === 'remove') await this.handleAlertChannelRemove(interaction);
         break;
-      case 'change':
-        await this.handleChange(interaction);
+      case 'alert-mention':
+        if (subcommand === 'set') await this.handleAlertMentionSet(interaction);
+        if (subcommand === 'remove') await this.handleAlertMentionRemove(interaction);
         break;
-      case 'remove':
-        await this.handleRemove(interaction);
+      case 'earnings-channel':
+        if (subcommand === 'set') await this.handleEarningsChannelSet(interaction);
+        if (subcommand === 'remove') await this.handleEarningsChannelRemove(interaction);
         break;
-      case 'remove-all':
-        await this.handleRemoveAll(interaction);
+      case 'earnings-mention':
+        if (subcommand === 'set') await this.handleEarningsMentionSet(interaction);
+        if (subcommand === 'remove') await this.handleEarningsMentionRemove(interaction);
         break;
-      case 'mention':
-        await this.handleMention(interaction);
-        break;
-      case 'remove-mention':
-        await this.handleRemoveMention(interaction);
-        break;
-      case 'view':
-        await this.handleView(interaction);
+      case null:
+        if (subcommand === 'view') await this.handleView(interaction);
         break;
     }
   }
 
-  async handleAdd(interaction) {
+  async handleAlertChannelAdd(interaction) {
     const channel = interaction.options.getChannel('channel');
     const guildId = interaction.guildId;
 
@@ -97,8 +124,8 @@ class SetupCommand {
     const botMember = interaction.guild.members.me;
     const permissions = channel.permissionsFor(botMember);
 
-    if (!permissions.has(PermissionFlagsBits.SendMessages) || 
-        !permissions.has(PermissionFlagsBits.EmbedLinks)) {
+    if (!permissions.has(PermissionFlagsBits.SendMessages) ||
+      !permissions.has(PermissionFlagsBits.EmbedLinks)) {
       return await interaction.reply({
         content: `❌ I don't have permission to send messages or embed links in ${channel}. Please grant me the necessary permissions first.`,
         ephemeral: true
@@ -130,56 +157,7 @@ class SetupCommand {
     }
   }
 
-  async handleChange(interaction) {
-    const oldChannel = interaction.options.getChannel('old-channel');
-    const newChannel = interaction.options.getChannel('new-channel');
-    const guildId = interaction.guildId;
-
-    // Check if bot has permissions in the new channel
-    const botMember = interaction.guild.members.me;
-    const permissions = newChannel.permissionsFor(botMember);
-
-    if (!permissions.has(PermissionFlagsBits.SendMessages) || 
-        !permissions.has(PermissionFlagsBits.EmbedLinks)) {
-      return await interaction.reply({
-        content: `❌ I don't have permission to send messages or embed links in ${newChannel}. Please grant me the necessary permissions first.`,
-        ephemeral: true
-      });
-    }
-
-    // Change the channel
-    const result = await ChannelManager.changeChannel(guildId, oldChannel.id, newChannel.id);
-
-    if (result === false) {
-      return await interaction.reply({
-        content: `❌ ${oldChannel} is not in the configured alert channels list.`,
-        ephemeral: true
-      });
-    }
-
-    if (result === 'duplicate') {
-      return await interaction.reply({
-        content: `⚠️ ${newChannel} is already in the configured alert channels list.`,
-        ephemeral: true
-      });
-    }
-
-    await interaction.reply({
-      content: `✅ Channel changed from ${oldChannel} to ${newChannel}`,
-      ephemeral: true
-    });
-
-    // Send a test message
-    try {
-      await newChannel.send({
-        content: '📊 This channel is now configured for trading alerts!'
-      });
-    } catch (error) {
-      console.error('Error sending test message:', error);
-    }
-  }
-
-  async handleRemove(interaction) {
+  async handleAlertChannelRemove(interaction) {
     const channel = interaction.options.getChannel('channel');
     const guildId = interaction.guildId;
 
@@ -198,25 +176,7 @@ class SetupCommand {
     });
   }
 
-  async handleRemoveAll(interaction) {
-    const guildId = interaction.guildId;
-
-    const count = await ChannelManager.removeAllChannels(guildId);
-
-    if (count === false || count === 0) {
-      return await interaction.reply({
-        content: `❌ No channels are currently configured.`,
-        ephemeral: true
-      });
-    }
-
-    await interaction.reply({
-      content: `✅ All ${count} configured channel(s) have been removed.`,
-      ephemeral: true
-    });
-  }
-
-  async handleMention(interaction) {
+  async handleAlertMentionSet(interaction) {
     const role = interaction.options.getRole('role');
     const guildId = interaction.guildId;
 
@@ -228,13 +188,87 @@ class SetupCommand {
     });
   }
 
-  async handleRemoveMention(interaction) {
+  async handleAlertMentionRemove(interaction) {
     const guildId = interaction.guildId;
 
     await ChannelManager.removeMentionRole(guildId);
 
     await interaction.reply({
-      content: `✅ Mention role has been removed from alerts.`,
+      content: `✅ Alert mention role has been removed from alerts.`,
+      ephemeral: true
+    });
+  }
+
+  async handleEarningsChannelSet(interaction) {
+    const channel = interaction.options.getChannel('channel');
+    const guildId = interaction.guildId;
+
+    // Check if bot has permissions in the target channel
+    const botMember = interaction.guild.members.me;
+    const permissions = channel.permissionsFor(botMember);
+
+    if (!permissions.has(PermissionFlagsBits.SendMessages) ||
+      !permissions.has(PermissionFlagsBits.EmbedLinks)) {
+      return await interaction.reply({
+        content: `❌ I don't have permission to send messages or embed links in ${channel}. Please grant me the necessary permissions first.`,
+        ephemeral: true
+      });
+    }
+
+    await ChannelManager.setEarningsChannel(guildId, channel.id);
+
+    await interaction.reply({
+      content: `✅ ${channel} has been configured for daily earnings calendar posts.`,
+      ephemeral: true
+    });
+
+    // Send a test message
+    try {
+      await channel.send({
+        content: '📅 This channel is now configured for daily earnings calendar!'
+      });
+    } catch (error) {
+      console.error('Error sending test message:', error);
+    }
+  }
+
+  async handleEarningsChannelRemove(interaction) {
+    const guildId = interaction.guildId;
+
+    const removed = await ChannelManager.removeEarningsChannel(guildId);
+
+    if (!removed) {
+      return await interaction.reply({
+        content: `❌ No earnings channel is currently configured.`,
+        ephemeral: true
+      });
+    }
+
+    await interaction.reply({
+      content: `✅ Earnings channel has been removed.`,
+      ephemeral: true
+    });
+  }
+
+  async handleEarningsMentionSet(interaction) {
+    const role = interaction.options.getRole('role');
+    const guildId = interaction.guildId;
+
+    await ChannelManager.setEarningsMentionRole(guildId, role.id);
+
+    await interaction.reply({
+      content: `✅ Earnings posts will now mention ${role}`,
+      ephemeral: true
+    });
+  }
+
+  async handleEarningsMentionRemove(interaction) {
+    const guildId = interaction.guildId;
+
+    await ChannelManager.removeEarningsMentionRole(guildId);
+
+    await interaction.reply({
+      content: `✅ Earnings mention role has been removed.`,
       ephemeral: true
     });
   }
@@ -243,34 +277,33 @@ class SetupCommand {
     const guildId = interaction.guildId;
     const config = ChannelManager.getConfiguration(guildId);
 
-    if (config.channels.length === 0 && !config.mentionRole) {
+    if (config.channels.length === 0 && !config.mentionRole && !config.earningsChannel && !config.earningsMentionRole) {
       return await interaction.reply({
-        content: '📋 No configuration found.\n\nUse `/setup add` to add alert channels and `/setup mention` to set a mention role.',
+        content: '📋 No configuration found.\n\nUse `/setup alert-channel add` to add alert channels and `/setup earnings-channel set` to configure earnings.',
         ephemeral: true
       });
     }
 
     let response = '📋 **Current Configuration:**\n\n';
 
-    // Show channels
+    // Show alert channels
+    response += '**📊 Alert Channels:**\n';
     if (config.channels.length > 0) {
-      response += '**Alert Channels:**\n';
       for (const channelId of config.channels) {
         const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
         if (channel) {
           response += `• ${channel}\n`;
         } else {
           response += `• <#${channelId}> (channel deleted)\n`;
-          // Clean up deleted channel
           await ChannelManager.removeChannel(guildId, channelId);
         }
       }
     } else {
-      response += '**Alert Channels:** None configured\n';
+      response += '• None configured\n';
     }
 
-    // Show mention role
-    response += '\n**Mention Role:** ';
+    // Show alert mention role
+    response += '\n**👥 Alert Mention Role:** ';
     if (config.mentionRole) {
       const role = await interaction.guild.roles.fetch(config.mentionRole).catch(() => null);
       if (role) {
@@ -283,7 +316,35 @@ class SetupCommand {
       response += 'None';
     }
 
-    response += '\n\n*Use `/setup add`, `/setup change`, `/setup remove`, `/setup remove-all`, or `/setup mention` to modify.*';
+    // Show earnings channel
+    response += '\n\n**📅 Earnings Channel:** ';
+    if (config.earningsChannel) {
+      const channel = await interaction.guild.channels.fetch(config.earningsChannel).catch(() => null);
+      if (channel) {
+        response += `${channel}`;
+      } else {
+        response += 'Channel deleted';
+        await ChannelManager.removeEarningsChannel(guildId);
+      }
+    } else {
+      response += 'None';
+    }
+
+    // Show earnings mention role
+    response += '\n**👥 Earnings Mention Role:** ';
+    if (config.earningsMentionRole) {
+      const role = await interaction.guild.roles.fetch(config.earningsMentionRole).catch(() => null);
+      if (role) {
+        response += `${role}`;
+      } else {
+        response += 'Role deleted';
+        await ChannelManager.removeEarningsMentionRole(guildId);
+      }
+    } else {
+      response += 'None';
+    }
+
+    response += '\n\n*Use `/setup` subcommands to modify this configuration.*';
 
     await interaction.reply({
       content: response,

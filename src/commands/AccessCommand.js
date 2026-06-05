@@ -1,6 +1,6 @@
-const { 
-  SlashCommandBuilder, 
-  ActionRowBuilder, 
+const {
+  SlashCommandBuilder,
+  ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder
 } = require('discord.js');
