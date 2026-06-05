@@ -5,6 +5,7 @@ const CommandHandler = require('./handlers/CommandHandler');
 const InteractionHandler = require('./handlers/InteractionHandler');
 const ChannelManager = require('./utils/ChannelManager');
 const AuthManager = require('./utils/AuthManager');
+const AccessManager = require('./utils/AccessManager');
 const EarningsCalendar = require('./utils/EarningsCalendar');
 const EarningsCalendarEmbed = require('./embeds/EarningsCalendarEmbed');
 
