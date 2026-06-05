@@ -18,7 +18,8 @@ class TradingBot {
     });
 
     this.commandHandler = new CommandHandler();
-    this.interactionHandler = InteractionHandler;
+    this.interactionHandler = new InteractionHandler();
+    this.accessManager = AccessManager;
     this.channelManager = ChannelManager;
     this.authManager = AuthManager;
     this.earningsCalendar = EarningsCalendar;
@@ -53,6 +54,7 @@ class TradingBot {
     }
 
     // Initialize all managers
+    await this.accessManager.init();
     await this.channelManager.init();
     await this.authManager.init();
     await this.earningsCalendar.init();
