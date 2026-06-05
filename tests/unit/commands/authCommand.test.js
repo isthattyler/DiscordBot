@@ -1,7 +1,9 @@
 const AuthCommand = require('../../../src/commands/AuthCommand');
 const AuthManager = require('../../../src/utils/AuthManager');
+const ChannelManager = require('../../../src/utils/ChannelManager');
 
 jest.mock('../../../src/utils/AuthManager');
+jest.mock('../../../src/utils/ChannelManager');
 
 describe('AuthCommand', () => {
   let command;
@@ -29,6 +31,7 @@ describe('AuthCommand', () => {
 
     AuthManager.isOwner.mockReturnValue(true);
     AuthManager.ownerId = 'owner-123';
+    ChannelManager.removeUserConfigs.mockResolvedValue(true);
   });
 
   describe('Command Structure', () => {
@@ -111,15 +114,16 @@ describe('AuthCommand', () => {
       mockInteraction.options.getUser.mockReturnValue(mockUser);
     });
 
-    test('should remove user successfully', async () => {
+    test('should remove user and clean up alert config', async () => {
       AuthManager.removeUser.mockResolvedValue(true);
 
       await command.execute(mockInteraction);
 
       expect(AuthManager.removeUser).toHaveBeenCalledWith('guild-123', 'user-123');
+      expect(ChannelManager.removeUserConfigs).toHaveBeenCalledWith('guild-123', 'user-123');
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.stringContaining('removed from authorized'),
+          content: expect.stringContaining('alert config has been cleaned up'),
           ephemeral: true
         })
       );
