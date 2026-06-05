@@ -5,11 +5,13 @@
  */
 
 jest.mock('../../../src/utils/AuthManager', () => ({
-  isAuthorized: jest.fn()
+  isAuthorized: jest.fn(),
+  isOwner: jest.fn()
 }));
 
 jest.mock('../../../src/utils/ChannelManager', () => ({
-  getAllConfigurations: jest.fn()
+  getAllAlertConfigs: jest.fn(),
+  getUserAlertConfig: jest.fn()
 }));
 
 jest.mock('../../../src/embeds/TradingAlertEmbed', () => ({
@@ -49,7 +51,14 @@ describe('ShortCommand', () => {
     };
     
     AuthManager.isAuthorized.mockReturnValue(true);
-    ChannelManager.getAllConfigurations.mockReturnValue([]);
+    AuthManager.isOwner.mockReturnValue(false);
+    ChannelManager.getAllAlertConfigs.mockReturnValue([]);
+    ChannelManager.getUserAlertConfig.mockReturnValue({
+      guildId: 'test-guild-123',
+      userId: 'user-456',
+      channels: [],
+      mentionRole: null
+    });
     TradingAlertEmbed.create.mockReturnValue({ setImage: jest.fn() });
   });
   
@@ -107,15 +116,20 @@ describe('ShortCommand', () => {
       );
     });
     
-    test('should accept authorized users', async () => {
+    test('should accept authorized users and broadcast to own channels', async () => {
       AuthManager.isAuthorized.mockReturnValue(true);
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        { guildId: 'guild-1', channels: ['channel-1'], mentionRole: null }
-      ]);
+      AuthManager.isOwner.mockReturnValue(false);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1'],
+        mentionRole: null
+      });
       mockInteraction.options.getString.mockReturnValue('ES');
       
       await command.execute(mockInteraction);
       
+      expect(ChannelManager.getUserAlertConfig).toHaveBeenCalledWith('test-guild-123', 'user-456');
       expect(mockInteraction.deferReply).toHaveBeenCalled();
     });
   });
@@ -227,10 +241,16 @@ describe('ShortCommand', () => {
     });
   });
   
-  describe('Broadcast Logic', () => {
-    test('should show error when no channels configured', async () => {
+  describe('Non-Owner Broadcast', () => {
+    test('should show error when user has no channels configured', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
       mockInteraction.options.getString.mockReturnValue('ES');
-      ChannelManager.getAllConfigurations.mockReturnValue([]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: [],
+        mentionRole: null
+      });
       
       const mockEmbed = { setImage: jest.fn() };
       TradingAlertEmbed.create.mockReturnValue(mockEmbed);
@@ -239,22 +259,22 @@ describe('ShortCommand', () => {
       
       expect(mockInteraction.reply).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.stringContaining('No servers are configured'),
+          content: expect.stringContaining('no alert channels'),
           ephemeral: true
         })
       );
     });
     
-    test('should broadcast to all configured channels', async () => {
+    test('should broadcast to user\'s own channels', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
       mockInteraction.options.getString.mockReturnValue('ES');
       
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        {
-          guildId: 'guild-1',
-          channels: ['channel-1', 'channel-2'],
-          mentionRole: null
-        }
-      ]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1', 'channel-2'],
+        mentionRole: null
+      });
       
       mockInteraction.client.channels.fetch.mockResolvedValue({
         send: jest.fn()
@@ -270,15 +290,15 @@ describe('ShortCommand', () => {
     });
     
     test('should include mention role if configured', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
       mockInteraction.options.getString.mockReturnValue('ES');
       
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        {
-          guildId: 'guild-1',
-          channels: ['channel-1'],
-          mentionRole: 'role-456'
-        }
-      ]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1'],
+        mentionRole: 'role-456'
+      });
       
       const mockChannel = {
         send: jest.fn()
@@ -298,15 +318,15 @@ describe('ShortCommand', () => {
     });
     
     test('should handle channel fetch errors', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
       mockInteraction.options.getString.mockReturnValue('ES');
       
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        {
-          guildId: 'guild-1',
-          channels: ['invalid-channel'],
-          mentionRole: null
-        }
-      ]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['invalid-channel'],
+        mentionRole: null
+      });
       
       mockInteraction.client.channels.fetch.mockRejectedValue(new Error('Channel not found'));
       
@@ -323,15 +343,15 @@ describe('ShortCommand', () => {
     });
     
     test('should report success with channel count', async () => {
+      AuthManager.isOwner.mockReturnValue(false);
       mockInteraction.options.getString.mockReturnValue('ES');
       
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        {
-          guildId: 'guild-1',
-          channels: ['channel-1', 'channel-2'],
-          mentionRole: null
-        }
-      ]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1', 'channel-2'],
+        mentionRole: null
+      });
       
       mockInteraction.client.channels.fetch.mockResolvedValue({
         send: jest.fn()
@@ -350,27 +370,74 @@ describe('ShortCommand', () => {
     });
   });
   
+  describe('Owner Broadcast', () => {
+    test('should show error when no servers configured (owner)', async () => {
+      AuthManager.isOwner.mockReturnValue(true);
+      mockInteraction.options.getString.mockReturnValue('ES');
+      ChannelManager.getAllAlertConfigs.mockReturnValue([]);
+      
+      const mockEmbed = { setImage: jest.fn() };
+      TradingAlertEmbed.create.mockReturnValue(mockEmbed);
+      
+      await command.execute(mockInteraction);
+      
+      expect(mockInteraction.reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('No servers are configured'),
+          ephemeral: true
+        })
+      );
+    });
+    
+    test('should broadcast to all user configs across all guilds', async () => {
+      AuthManager.isOwner.mockReturnValue(true);
+      mockInteraction.options.getString.mockReturnValue('ES');
+      
+      ChannelManager.getAllAlertConfigs.mockReturnValue([
+        { guildId: 'guild-1', userId: 'user-1', channels: ['channel-1', 'channel-2'], mentionRole: null },
+        { guildId: 'guild-2', userId: 'user-2', channels: ['channel-3'], mentionRole: null }
+      ]);
+      
+      mockInteraction.client.channels.fetch.mockResolvedValue({
+        send: jest.fn()
+      });
+      
+      const mockEmbed = { setImage: jest.fn() };
+      TradingAlertEmbed.create.mockReturnValue(mockEmbed);
+      
+      await command.execute(mockInteraction);
+      
+      expect(mockInteraction.deferReply).toHaveBeenCalled();
+      expect(mockInteraction.client.channels.fetch).toHaveBeenCalledTimes(3);
+    });
+  });
+  
   describe('Error Handling', () => {
     test('should handle defer reply errors gracefully', async () => {
       mockInteraction.options.getString.mockReturnValue('ES');
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1'],
+        mentionRole: null
+      });
       mockInteraction.deferReply.mockRejectedValue(new Error('Already replied'));
       
       const mockEmbed = { setImage: jest.fn() };
       TradingAlertEmbed.create.mockReturnValue(mockEmbed);
       
-      await expect(command.execute(mockInteraction)).resolves.not.toThrow();
+      await expect(command.execute(mockInteraction)).rejects.toThrow('Already replied');
     });
     
     test('should propagate edit reply errors', async () => {
       mockInteraction.options.getString.mockReturnValue('ES');
       
-      ChannelManager.getAllConfigurations.mockReturnValue([
-        {
-          guildId: 'guild-1',
-          channels: ['channel-1'],
-          mentionRole: null
-        }
-      ]);
+      ChannelManager.getUserAlertConfig.mockReturnValue({
+        guildId: 'test-guild-123',
+        userId: 'user-456',
+        channels: ['channel-1'],
+        mentionRole: null
+      });
       
       mockInteraction.client.channels.fetch.mockResolvedValue({
         send: jest.fn()
