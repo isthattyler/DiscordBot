@@ -54,6 +54,7 @@ class TradingBot {
     }
 
     // Initialize all managers
+    await this.accessManager.init();
     await this.channelManager.init();
     await this.authManager.init();
     await this.earningsCalendar.init();
