@@ -239,7 +239,17 @@ class EarningsImageGenerator {
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(title, x + 12, y + 18);
+    const isPre = title.includes('Before');
+    const cleanTitle = isPre ? 'Before Open' : 'After Close';
+    const iconSize = 16;
+    const iconX = x + 12;
+    const iconY = y + 18 - iconSize / 2;
+    if (isPre) {
+      this.drawSunIcon(ctx, iconX, iconY, iconSize);
+    } else {
+      this.drawMoonIcon(ctx, iconX, iconY, iconSize);
+    }
+    ctx.fillText(cleanTitle, iconX + iconSize + 6, y + 18);
 
     const contentY = y + 50;
 
@@ -253,7 +263,7 @@ class EarningsImageGenerator {
       ctx.fillStyle = '#666666';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('📅 No Earnings', x + width / 2, contentY + 22);
+      ctx.fillText('No Earnings', x + width / 2, contentY + 22);
       return y + height;
     }
 
@@ -335,7 +345,17 @@ class EarningsImageGenerator {
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(title, x + 8, y + 13);
+    const isPreMini = title.includes('Before');
+    const cleanTitleMini = isPreMini ? 'Before Open' : 'After Close';
+    const miniIconSize = 12;
+    const miniIconX = x + 8;
+    const miniIconY = y + 13 - miniIconSize / 2;
+    if (isPreMini) {
+      this.drawSunIcon(ctx, miniIconX, miniIconY, miniIconSize);
+    } else {
+      this.drawMoonIcon(ctx, miniIconX, miniIconY, miniIconSize);
+    }
+    ctx.fillText(cleanTitleMini, miniIconX + miniIconSize + 4, y + 13);
 
     const contentY = y + 32;
 
@@ -406,6 +426,65 @@ class EarningsImageGenerator {
       ctx.textBaseline = 'middle';
       ctx.fillText(ticker, x + size / 2, y + size / 2);
     }
+  }
+
+  // ─── Custom Icons ───
+
+  drawSunIcon(ctx, x, y, size) {
+    const centerX = x + size / 2;
+    const centerY = y + size / 2;
+    const radius = size * 0.3;
+    const rayLength = size * 0.15;
+
+    // Draw sun rays
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = Math.max(1, size * 0.08);
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * Math.PI * 2) / 8;
+      const innerX = centerX + Math.cos(angle) * (radius + 1);
+      const innerY = centerY + Math.sin(angle) * (radius + 1);
+      const outerX = centerX + Math.cos(angle) * (radius + rayLength + 2);
+      const outerY = centerY + Math.sin(angle) * (radius + rayLength + 2);
+      ctx.beginPath();
+      ctx.moveTo(innerX, innerY);
+      ctx.lineTo(outerX, outerY);
+      ctx.stroke();
+    }
+
+    // Draw sun circle
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawMoonIcon(ctx, x, y, size) {
+    const centerX = x + size / 2;
+    const centerY = y + size / 2;
+    const radius = size * 0.35;
+    const offset = size * 0.12;
+
+    // Draw moon crescent
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cut out the inner part to create crescent
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(centerX + offset, centerY - offset, radius * 0.75, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Draw a small star
+    const starX = centerX - radius * 0.5;
+    const starY = centerY - radius * 0.5;
+    const starRadius = size * 0.1;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(starX, starY, starRadius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // ─── Height Calculations ───
