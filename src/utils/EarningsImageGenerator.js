@@ -1,4 +1,4 @@
-const { Canvas, Image } = require('skia-canvas');
+const { createCanvas, Image } = require('canvas');
 const LogoManager = require('./LogoManager');
 
 class EarningsImageGenerator {
@@ -9,17 +9,44 @@ class EarningsImageGenerator {
     this.maxLogos = 10;
     this.dailyWidth = 800;
     this.weeklyDayWidth = 200;
-    this.weeklyWidth = 5 * this.weeklyDayWidth + 40; // 5 days + padding
+    this.weeklyWidth = 20 + (5 * this.weeklyDayWidth) + (4 * 20) + 20; // 5 days + gaps + padding
   }
 
   async init() {
     await LogoManager.init();
   }
 
+  // ─── Logo Pre-loading ───
+
+  async preloadLogos(tickers) {
+    const logos = {};
+    for (const ticker of tickers) {
+      const result = await LogoManager.getLogo(ticker);
+      if (result && result.buffer) {
+        try {
+          const img = new Image();
+          img.src = result.buffer;
+          logos[ticker] = img;
+        } catch (error) {
+          console.log(`⚠️ Failed to load logo image for ${ticker}:`, error.message);
+        }
+      }
+    }
+    return logos;
+  }
+
   // ─── Daily Image ───
 
   async generateDailyImage(earningsData, date) {
     const { preMarket, postMarket } = earningsData;
+
+    // Pre-load all logos
+    const allTickers = [
+      ...preMarket.map(e => e.symbol),
+      ...postMarket.map(e => e.symbol)
+    ];
+    const logos = await this.preloadLogos(allTickers);
+
     const preRows = Math.ceil(Math.min(preMarket.length, this.maxLogos) / this.logosPerRow);
     const postRows = Math.ceil(Math.min(postMarket.length, this.maxLogos) / this.logosPerRow);
 
@@ -32,7 +59,7 @@ class EarningsImageGenerator {
 
     const preHeight = preMarket.length > 0
       ? sectionHeaderHeight + sectionPadding + (preRows * rowHeight) + sectionPadding + (preMarket.length > this.maxLogos ? 20 : 0)
-      : sectionHeaderHeight + sectionPadding + 40 + sectionPadding; // No earnings card
+      : sectionHeaderHeight + sectionPadding + 40 + sectionPadding;
 
     const postHeight = postMarket.length > 0
       ? sectionHeaderHeight + sectionPadding + (postRows * rowHeight) + sectionPadding + (postMarket.length > this.maxLogos ? 20 : 0)
@@ -40,7 +67,7 @@ class EarningsImageGenerator {
 
     const canvasHeight = headerHeight + preHeight + 20 + postHeight + footerHeight;
 
-    const canvas = new Canvas(this.dailyWidth, canvasHeight);
+    const canvas = createCanvas(this.dailyWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
 
     // Background
@@ -57,11 +84,11 @@ class EarningsImageGenerator {
 
     // Pre-Market section
     let y = headerHeight;
-    y = this.drawSection(ctx, 20, y, this.dailyWidth - 40, preHeight, 'Before Open', preMarket, '#E5C29F', '#D4A574', '#F5E6D3');
+    y = this.drawSection(ctx, 20, y, this.dailyWidth - 40, preHeight, '☀ Before Open', preMarket, logos, '#E5C29F', '#F5E6D3');
 
     // Post-Market section
     y += 20;
-    this.drawSection(ctx, 20, y, this.dailyWidth - 40, postHeight, 'After Close', postMarket, '#8FA8B8', '#7A94A4', '#E3EBF0');
+    this.drawSection(ctx, 20, y, this.dailyWidth - 40, postHeight, '🌙 After Close', postMarket, logos, '#8FA8B8', '#E3EBF0');
 
     // Footer
     ctx.fillStyle = '#888888';
@@ -69,7 +96,7 @@ class EarningsImageGenerator {
     ctx.textAlign = 'center';
     ctx.fillText('Earnings data from Alpha Vantage | Major indices only', this.dailyWidth / 2, canvasHeight - 12);
 
-    return canvas.toBuffer('png');
+    return canvas.toBuffer('image/png');
   }
 
   // ─── Weekly Image ───
@@ -96,6 +123,16 @@ class EarningsImageGenerator {
       });
     }
 
+    // Pre-load all logos across all days
+    const allTickers = [];
+    for (const dayInfo of dayDates) {
+      const earnings = weekData[dayInfo.key] || [];
+      for (const e of earnings) {
+        allTickers.push(e.symbol);
+      }
+    }
+    const logos = await this.preloadLogos(allTickers);
+
     // Calculate max height needed
     let maxDayHeight = 0;
     for (const dayInfo of dayDates) {
@@ -110,7 +147,7 @@ class EarningsImageGenerator {
     const footerHeight = 30;
     const canvasHeight = headerHeight + maxDayHeight + footerHeight + 40;
 
-    const canvas = new Canvas(this.weeklyWidth, canvasHeight);
+    const canvas = createCanvas(this.weeklyWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
 
     // Background
@@ -133,7 +170,7 @@ class EarningsImageGenerator {
       const pre = earnings.filter(e => (e.timeOfTheDay?.toLowerCase() || '').includes('pre'));
       const post = earnings.filter(e => !(e.timeOfTheDay?.toLowerCase() || '').includes('pre'));
 
-      this.drawDayColumn(ctx, x, headerHeight + 20, dayWidth, dayHeight, dayInfo, pre, post);
+      this.drawDayColumn(ctx, x, headerHeight + 20, dayWidth, dayHeight, dayInfo, pre, post, logos);
 
       // Vertical separator
       if (i < dayDates.length - 1) {
@@ -154,13 +191,12 @@ class EarningsImageGenerator {
     ctx.textAlign = 'center';
     ctx.fillText('Earnings data from Alpha Vantage | Major indices only', this.weeklyWidth / 2, canvasHeight - 12);
 
-    return canvas.toBuffer('png');
+    return canvas.toBuffer('image/png');
   }
 
   // ─── Drawing Helpers ───
 
   drawHeader(ctx, title, height) {
-    // Green header bar
     ctx.fillStyle = '#1DB954';
     ctx.beginPath();
     ctx.roundRect(20, 10, this.dailyWidth - 40, height - 20, 20);
@@ -186,7 +222,7 @@ class EarningsImageGenerator {
     ctx.fillText(title, this.weeklyWidth / 2, height / 2);
   }
 
-  drawSection(ctx, x, y, width, height, title, earnings, headerColor, headerDarkColor, bgColor) {
+  drawSection(ctx, x, y, width, height, title, earnings, logos, headerColor, bgColor) {
     // Section background
     ctx.fillStyle = bgColor;
     ctx.beginPath();
@@ -196,7 +232,7 @@ class EarningsImageGenerator {
     // Section header
     ctx.fillStyle = headerColor;
     ctx.beginPath();
-    ctx.roundRect(x, y, width, 36, { topLeft: 12, topRight: 12, bottomLeft: 0, bottomRight: 0 });
+    ctx.roundRect(x, y, width, 36, 12);
     ctx.fill();
 
     ctx.fillStyle = '#FFFFFF';
@@ -238,7 +274,7 @@ class EarningsImageGenerator {
       }
 
       const ticker = capped[i].symbol;
-      this.drawLogoOrFallback(ctx, logoX, logoY, ticker);
+      this.drawLogoOrFallback(ctx, logoX, logoY, ticker, logos);
 
       ctx.fillStyle = '#333333';
       ctx.font = 'bold 11px sans-serif';
@@ -258,12 +294,12 @@ class EarningsImageGenerator {
     return y + height;
   }
 
-  drawDayColumn(ctx, x, y, width, height, dayInfo, pre, post) {
+  drawDayColumn(ctx, x, y, width, height, dayInfo, pre, post, logos) {
     // Day header
     const isToday = new Date().toDateString() === dayInfo.date.toDateString();
     ctx.fillStyle = isToday ? '#1DB954' : '#333333';
     ctx.beginPath();
-    ctx.roundRect(x, y, width, 32, { topLeft: 12, topRight: 12, bottomLeft: 0, bottomRight: 0 });
+    ctx.roundRect(x, y, width, 32, 12);
     ctx.fill();
 
     ctx.fillStyle = '#FFFFFF';
@@ -276,15 +312,15 @@ class EarningsImageGenerator {
 
     // Before Open
     const preHeight = this.calculateSectionHeight(pre);
-    this.drawMiniSection(ctx, x, currentY, width, preHeight, '☀ Before Open', pre, '#E5C29F', '#F5E6D3');
+    this.drawMiniSection(ctx, x, currentY, width, preHeight, '☀ Before Open', pre, logos, '#E5C29F', '#F5E6D3');
     currentY += preHeight + 8;
 
     // After Close
     const postHeight = this.calculateSectionHeight(post);
-    this.drawMiniSection(ctx, x, currentY, width, postHeight, '🌙 After Close', post, '#8FA8B8', '#E3EBF0');
+    this.drawMiniSection(ctx, x, currentY, width, postHeight, '🌙 After Close', post, logos, '#8FA8B8', '#E3EBF0');
   }
 
-  drawMiniSection(ctx, x, y, width, height, title, earnings, headerColor, bgColor) {
+  drawMiniSection(ctx, x, y, width, height, title, earnings, logos, headerColor, bgColor) {
     ctx.fillStyle = bgColor;
     ctx.beginPath();
     ctx.roundRect(x, y, width, height, 8);
@@ -292,7 +328,7 @@ class EarningsImageGenerator {
 
     ctx.fillStyle = headerColor;
     ctx.beginPath();
-    ctx.roundRect(x, y, width, 26, { topLeft: 8, topRight: 8, bottomLeft: 0, bottomRight: 0 });
+    ctx.roundRect(x, y, width, 26, 8);
     ctx.fill();
 
     ctx.fillStyle = '#FFFFFF';
@@ -333,7 +369,7 @@ class EarningsImageGenerator {
       }
 
       const ticker = capped[i].symbol;
-      this.drawLogoOrFallback(ctx, logoX, logoY, ticker, miniLogoSize);
+      this.drawLogoOrFallback(ctx, logoX, logoY, ticker, logos, miniLogoSize);
 
       ctx.fillStyle = '#333333';
       ctx.font = 'bold 9px sans-serif';
@@ -351,25 +387,25 @@ class EarningsImageGenerator {
     }
   }
 
-  drawLogoOrFallback(ctx, x, y, ticker, size = this.logoSize) {
-    // Note: In production, this would try to load the logo image.
-    // For now, we draw a colored fallback square since async image loading
-    // inside a sync draw loop is tricky. The LogoManager is used externally
-    // to pre-load logos, but for simplicity in this version we use the fallback.
-    // A future enhancement could pre-load all logos before drawing.
+  drawLogoOrFallback(ctx, x, y, ticker, logos, size = this.logoSize) {
+    if (logos && logos[ticker]) {
+      // Draw actual logo image
+      ctx.drawImage(logos[ticker], x, y, size, size);
+    } else {
+      // Draw colored fallback square
+      const color = LogoManager.getTickerColor(ticker);
 
-    const color = LogoManager.getTickerColor(ticker);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, 6);
+      ctx.fill();
 
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(x, y, size, size, 6);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.max(10, size / 3)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ticker, x + size / 2, y + size / 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold ${Math.max(10, size / 3)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ticker, x + size / 2, y + size / 2);
+    }
   }
 
   // ─── Height Calculations ───

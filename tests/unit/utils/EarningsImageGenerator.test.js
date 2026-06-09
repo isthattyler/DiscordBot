@@ -15,28 +15,7 @@ jest.mock('../../../src/utils/LogoManager', () => ({
   })
 }));
 
-jest.mock('skia-canvas', () => ({
-  Canvas: jest.fn().mockImplementation(() => ({
-    getContext: jest.fn().mockReturnValue({
-      fillStyle: '',
-      strokeStyle: '',
-      lineWidth: 0,
-      font: '',
-      textAlign: '',
-      textBaseline: '',
-      fillRect: jest.fn(),
-      beginPath: jest.fn(),
-      roundRect: jest.fn(),
-      fill: jest.fn(),
-      stroke: jest.fn(),
-      moveTo: jest.fn(),
-      lineTo: jest.fn(),
-      fillText: jest.fn()
-    }),
-    toBuffer: jest.fn().mockReturnValue(Buffer.from('fake-image'))
-  })),
-  Image: jest.fn()
-}));
+
 
 const EarningsImageGenerator = require('../../../src/utils/EarningsImageGenerator');
 

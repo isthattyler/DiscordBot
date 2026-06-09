@@ -26,7 +26,7 @@ This document outlines the critical "how-to" procedures for controlling agent be
 | `/long` | Send a long trading alert | Authorized users | Green embed with 📈. Replaces old `/alert position:long`. |
 | `/short` | Send a short trading alert | Authorized users | Red embed with 📉. Replaces old `/alert position:short`. |
 | `/comment` | Post trade comments | Authorized users | Broadcasts to all alert channels. |
-| `/earnings` | View earnings calendar | Authorized users | Subcommands: `today`, `tomorrow`, `week`. |
+| `/earnings` | View earnings calendar | All users | Subcommands: `today`, `tomorrow`, `week`. |
 | `/setup` | Configure channels & roles | Manage Channels | See setup subcommands below. |
 | `/auth` | Manage bot access | Bot owner only | Add/remove authorized users. |
 | `/access` | Create TV access panel | Authorized users | Creates TradingView script access UI. |
@@ -202,6 +202,12 @@ npm run test:watch
 - Run bot to execute `CommandHandler.registerCommands()`
 - Wait up to 1 hour for Discord to propagate global commands
 - Try kicking and re-inviting the bot to force refresh
+
+**Earnings images not rendering text on Linux:**
+- The `canvas` package requires system libraries: `libcairo2-dev`, `libpango1.0-dev`, `libjpeg-dev`, `libgif-dev`, `librsvg2-dev`
+- Install with: `sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev`
+- After installing system deps, run `npm install` to rebuild native bindings
+- If text is still missing, check that fonts are installed: `sudo apt-get install -y fonts-liberation`
 
 **Authorization errors:**
 - Verify `DISCORD_OWNER_ID` is set in `.env`
