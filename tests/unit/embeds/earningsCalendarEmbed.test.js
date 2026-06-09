@@ -249,4 +249,35 @@ describe('EarningsCalendarEmbed', () => {
       expect(postMarket).toHaveLength(2);
     });
   });
+
+  describe('Image Embed Creation', () => {
+    test('should create daily image embed with attachment', () => {
+      const imageBuffer = Buffer.from('fake-image');
+      const date = new Date('2026-04-22');
+      
+      const { embed, attachment } = EarningsCalendarEmbed.createDailyImageEmbed(imageBuffer, date);
+      
+      expect(embed).toBeDefined();
+      expect(embed.data.title).toContain('Earnings Calendar');
+      expect(embed.data.image).toBeDefined();
+      expect(embed.data.image.url).toBe('attachment://earnings.png');
+      expect(attachment).toBeDefined();
+      expect(attachment.name).toBe('earnings.png');
+    });
+    
+    test('should create weekly image embed with attachment', () => {
+      const imageBuffer = Buffer.from('fake-image');
+      const weekStart = new Date('2026-04-20');
+      const weekEnd = new Date('2026-04-24');
+      
+      const { embed, attachment } = EarningsCalendarEmbed.createWeeklyImageEmbed(imageBuffer, weekStart, weekEnd);
+      
+      expect(embed).toBeDefined();
+      expect(embed.data.title).toContain('Weekly Earnings Calendar');
+      expect(embed.data.image).toBeDefined();
+      expect(embed.data.image.url).toBe('attachment://earnings_weekly.png');
+      expect(attachment).toBeDefined();
+      expect(attachment.name).toBe('earnings_weekly.png');
+    });
+  });
 });
