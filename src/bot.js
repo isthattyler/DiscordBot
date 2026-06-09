@@ -8,6 +8,7 @@ const AuthManager = require('./utils/AuthManager');
 const AccessManager = require('./utils/AccessManager');
 const EarningsCalendar = require('./utils/EarningsCalendar');
 const EarningsCalendarEmbed = require('./embeds/EarningsCalendarEmbed');
+const EarningsImageGenerator = require('./utils/EarningsImageGenerator');
 
 class TradingBot {
   constructor() {
@@ -78,17 +79,26 @@ class TradingBot {
   }
 
   async setupEarningsScheduler() {
-    // Schedule for 4:00 PM EST (21:00 UTC)
+    // Schedule for 4:00 PM EST (21:00 UTC) daily
     cron.schedule('0 21 * * *', async () => {
       console.log('📅 Running daily earnings calendar auto-post...');
       await this.broadcastEarningsCalendar();
     });
 
-    console.log('⏰ Earnings calendar scheduler set for 4:00 PM EST daily');
+    // Schedule for 6:00 PM EST (23:00 UTC) on Sundays
+    cron.schedule('0 23 * * 0', async () => {
+      console.log('📅 Running weekly earnings calendar auto-post...');
+      await this.broadcastWeeklyEarningsCalendar();
+    });
+
+    console.log('⏰ Daily earnings scheduler set for 4:00 PM EST');
+    console.log('⏰ Weekly earnings scheduler set for 6:00 PM EST Sundays');
   }
 
   async broadcastEarningsCalendar() {
     try {
+      await EarningsImageGenerator.init();
+
       // Get tomorrow's earnings
       const earnings = await EarningsCalendar.getTomorrowEarnings();
       
@@ -100,12 +110,10 @@ class TradingBot {
 
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const embed = EarningsCalendarEmbed.create(earnings, tomorrow, 'day');
 
-      if (!embed) {
-        console.log('📭 No embed generated, skipping auto-post');
-        return;
-      }
+      // Generate image
+      const imageBuffer = await EarningsImageGenerator.generateDailyImage(earnings, tomorrow);
+      const { embed, attachment } = EarningsCalendarEmbed.createDailyImageEmbed(imageBuffer, tomorrow);
 
       const allConfigs = ChannelManager.getAllEarningsConfigs();
       let totalConfigs = 0;
@@ -120,7 +128,8 @@ class TradingBot {
           const channel = await this.client.channels.fetch(config.earningsChannel);
           await channel.send({
             content: mentionText,
-            embeds: [embed]
+            embeds: [embed],
+            files: [attachment]
           });
           totalConfigs++;
         } catch (error) {
@@ -135,6 +144,64 @@ class TradingBot {
       }
     } catch (error) {
       console.error('❌ Error in earnings calendar auto-post:', error);
+    }
+  }
+
+  async broadcastWeeklyEarningsCalendar() {
+    try {
+      await EarningsImageGenerator.init();
+
+      const weekData = await EarningsCalendar.getWeekEarnings();
+
+      // Check if any earnings exist
+      const hasEarnings = Object.values(weekData).some(day => day.length > 0);
+      if (!hasEarnings) {
+        console.log('📭 No major earnings this week, skipping weekly auto-post');
+        return;
+      }
+
+      // Generate image
+      const imageBuffer = await EarningsImageGenerator.generateWeeklyImage(weekData);
+
+      const today = new Date();
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+      weekStart.setDate(diff);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 4);
+
+      const { embed, attachment } = EarningsCalendarEmbed.createWeeklyImageEmbed(imageBuffer, weekStart, weekEnd);
+
+      const allConfigs = ChannelManager.getAllEarningsConfigs();
+      let totalConfigs = 0;
+
+      for (const config of allConfigs) {
+        let mentionText = '';
+        if (config.earningsMentionRole) {
+          mentionText = `<@&${config.earningsMentionRole}> `;
+        }
+
+        try {
+          const channel = await this.client.channels.fetch(config.earningsChannel);
+          await channel.send({
+            content: mentionText,
+            embeds: [embed],
+            files: [attachment]
+          });
+          totalConfigs++;
+        } catch (error) {
+          console.error(`Failed to send weekly earnings to channel ${config.earningsChannel}:`, error);
+        }
+      }
+
+      if (totalConfigs > 0) {
+        console.log(`✅ Weekly earnings calendar posted to ${totalConfigs} server(s)`);
+      } else {
+        console.log('⚠️ No earnings channels configured in any server');
+      }
+    } catch (error) {
+      console.error('❌ Error in weekly earnings calendar auto-post:', error);
     }
   }
 
