@@ -25,8 +25,10 @@ class MockCanvas {
       stroke: () => {},
       moveTo: () => {},
       lineTo: () => {},
+      arc: () => {},
       fillText: () => {},
-      drawImage: () => {}
+      drawImage: () => {},
+      globalCompositeOperation: ''
     };
   }
 
