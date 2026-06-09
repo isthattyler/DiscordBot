@@ -2,12 +2,10 @@ const EarningsCommand = require('../../../src/commands/EarningsCommand');
 const EarningsCalendar = require('../../../src/utils/EarningsCalendar');
 const EarningsCalendarEmbed = require('../../../src/embeds/EarningsCalendarEmbed');
 const EarningsImageGenerator = require('../../../src/utils/EarningsImageGenerator');
-const AuthManager = require('../../../src/utils/AuthManager');
 
 jest.mock('../../../src/utils/EarningsCalendar');
 jest.mock('../../../src/embeds/EarningsCalendarEmbed');
 jest.mock('../../../src/utils/EarningsImageGenerator');
-jest.mock('../../../src/utils/AuthManager');
 
 describe('EarningsCommand', () => {
   let command;
@@ -16,7 +14,7 @@ describe('EarningsCommand', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     command = new EarningsCommand();
-    
+
     mockInteraction = {
       options: {
         getSubcommand: jest.fn(),
@@ -33,8 +31,6 @@ describe('EarningsCommand', () => {
         }
       }
     };
-
-    AuthManager.isAuthorized.mockReturnValue(true);
   });
 
   describe('Command Structure', () => {
@@ -59,35 +55,6 @@ describe('EarningsCommand', () => {
     test('should have week subcommand', () => {
       const weekSubcommand = command.data.options.find(o => o.name === 'week');
       expect(weekSubcommand).toBeDefined();
-    });
-  });
-
-  describe('Authorization', () => {
-    beforeEach(() => {
-      mockInteraction.options.getSubcommand.mockReturnValue('today');
-    });
-
-    test('should reject unauthorized users', async () => {
-      AuthManager.isAuthorized.mockReturnValue(false);
-
-      await command.execute(mockInteraction);
-
-      expect(mockInteraction.reply).toHaveBeenCalledWith(
-        expect.objectContaining({
-          content: expect.stringContaining('not authorized'),
-          ephemeral: true
-        })
-      );
-    });
-
-    test('should accept authorized users', async () => {
-      AuthManager.isAuthorized.mockReturnValue(true);
-      EarningsCalendar.getTodayEarnings.mockResolvedValue({ preMarket: [], postMarket: [] });
-      EarningsCalendarEmbed.createDailyImageEmbed.mockReturnValue({ embed: { data: {} }, attachment: { name: 'earnings.png' } });
-
-      await command.execute(mockInteraction);
-
-      expect(mockInteraction.deferReply).toHaveBeenCalled();
     });
   });
 

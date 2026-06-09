@@ -24,14 +24,6 @@ class EarningsCommand {
   }
 
   async execute(interaction) {
-    // Check authorization
-    if (!AuthManager.isAuthorized(interaction.guildId, interaction.user.id)) {
-      return await interaction.reply({
-        content: '❌ You are not authorized to use this bot. Contact the bot owner for access.',
-        ephemeral: true
-      });
-    }
-
     const subcommand = interaction.options.getSubcommand();
 
     await interaction.deferReply({ ephemeral: true });
