@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const config = require('../utils/ConfigLoader');
 
 class EarningsCalendarEmbed {
@@ -167,6 +167,64 @@ class EarningsCalendarEmbed {
     }
     
     return lines.join('\n');
+  }
+
+  // ─── Image-based Embed Builders ───
+
+  static createDailyImageEmbed(imageBuffer, date) {
+    const botConfig = config.get('bot');
+    const dateStr = date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(botConfig?.embed_color || '#5865F2')
+      .setTitle(`📅 Earnings Calendar — ${dateStr}`)
+      .setImage('attachment://earnings.png')
+      .setTimestamp();
+
+    const footerOptions = {
+      text: 'Earnings data from Alpha Vantage. Major indices only.'
+    };
+
+    if (botConfig?.icon_url) {
+      footerOptions.iconURL = botConfig.icon_url;
+    }
+
+    embed.setFooter(footerOptions);
+
+    const attachment = new AttachmentBuilder(imageBuffer, { name: 'earnings.png' });
+
+    return { embed, attachment };
+  }
+
+  static createWeeklyImageEmbed(imageBuffer, weekStart, weekEnd) {
+    const botConfig = config.get('bot');
+    const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    const embed = new EmbedBuilder()
+      .setColor(botConfig?.embed_color || '#5865F2')
+      .setTitle(`📅 Weekly Earnings Calendar`)
+      .setDescription(`**${startStr} - ${endStr}**`)
+      .setImage('attachment://earnings_weekly.png')
+      .setTimestamp();
+
+    const footerOptions = {
+      text: 'Earnings data from Alpha Vantage. Major indices only.'
+    };
+
+    if (botConfig?.icon_url) {
+      footerOptions.iconURL = botConfig.icon_url;
+    }
+
+    embed.setFooter(footerOptions);
+
+    const attachment = new AttachmentBuilder(imageBuffer, { name: 'earnings_weekly.png' });
+
+    return { embed, attachment };
   }
 
   static create(earningsData, date, type = 'day') {
