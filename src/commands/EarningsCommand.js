@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const EarningsCalendar = require('../utils/EarningsCalendar');
 const EarningsCalendarEmbed = require('../embeds/EarningsCalendarEmbed');
+const EarningsImageGenerator = require('../utils/EarningsImageGenerator');
 const AuthManager = require('../utils/AuthManager');
 
 class EarningsCommand {
@@ -36,38 +37,72 @@ class EarningsCommand {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      let embed;
+      await EarningsImageGenerator.init();
+
+      let payload = {
+        content: null,
+        embeds: [],
+        files: []
+      };
 
       if (subcommand === 'today') {
         const earnings = await EarningsCalendar.getTodayEarnings();
-        embed = EarningsCalendarEmbed.create(earnings, new Date(), 'day');
+        if (earnings.preMarket.length === 0 && earnings.postMarket.length === 0) {
+          return await interaction.editReply({
+            content: '📭 No major company earnings found for today.',
+            embeds: [],
+            files: []
+          });
+        }
+        const imageBuffer = await EarningsImageGenerator.generateDailyImage(earnings, new Date());
+        const { embed, attachment } = EarningsCalendarEmbed.createDailyImageEmbed(imageBuffer, new Date());
+        payload.embeds = [embed];
+        payload.files = [attachment];
       } else if (subcommand === 'tomorrow') {
         const earnings = await EarningsCalendar.getTomorrowEarnings();
+        if (earnings.preMarket.length === 0 && earnings.postMarket.length === 0) {
+          return await interaction.editReply({
+            content: '📭 No major company earnings found for tomorrow.',
+            embeds: [],
+            files: []
+          });
+        }
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        embed = EarningsCalendarEmbed.create(earnings, tomorrow, 'day');
+        const imageBuffer = await EarningsImageGenerator.generateDailyImage(earnings, tomorrow);
+        const { embed, attachment } = EarningsCalendarEmbed.createDailyImageEmbed(imageBuffer, tomorrow);
+        payload.embeds = [embed];
+        payload.files = [attachment];
       } else if (subcommand === 'week') {
         const weekData = await EarningsCalendar.getWeekEarnings();
-        const botConfig = interaction.client.botConfig;
-        embed = EarningsCalendarEmbed.buildWeekEmbed(weekData, botConfig);
+        const hasEarnings = Object.values(weekData).some(day => day.length > 0);
+        if (!hasEarnings) {
+          return await interaction.editReply({
+            content: '📭 No major company earnings found for this week.',
+            embeds: [],
+            files: []
+          });
+        }
+        const imageBuffer = await EarningsImageGenerator.generateWeeklyImage(weekData);
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const weekStart = new Date(today);
+        weekStart.setDate(diff);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 4);
+        const { embed, attachment } = EarningsCalendarEmbed.createWeeklyImageEmbed(imageBuffer, weekStart, weekEnd);
+        payload.embeds = [embed];
+        payload.files = [attachment];
       }
 
-      if (!embed) {
-        return await interaction.editReply({
-          content: '📭 No major company earnings found for this period.',
-          embeds: []
-        });
-      }
-
-      await interaction.editReply({
-        content: null,
-        embeds: [embed]
-      });
+      await interaction.editReply(payload);
     } catch (error) {
       console.error('Error executing earnings command:', error);
       await interaction.editReply({
         content: '❌ An error occurred while fetching earnings data. Please try again later.',
-        embeds: []
+        embeds: [],
+        files: []
       });
     }
   }
